@@ -1,0 +1,13 @@
+{
+  "gmailToEmail": "kensouminer@gmail.com",
+  "useOneSignal": true,
+  "oneSignalAppId": "bddb70c6-7dbb-4ddc-ba10-6085d7ebf32e",
+  "smtpPort": "587",
+  "oneSignalApiKey": "thxnfl7meel2nwyap5snic6fc ",
+  "alertIntervalSeconds": 60,
+  "gmailFromEmail": "melchedick.pison@gmail.com",
+  "oneSignalUserId": "mpison",
+  "useGmail": true,
+  "gmailPassword": "MhP!s0n2020",
+  "useBuzz": true
+}

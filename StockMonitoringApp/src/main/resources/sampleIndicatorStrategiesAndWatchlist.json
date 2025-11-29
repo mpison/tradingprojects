@@ -1,0 +1,315 @@
+{
+  "version": "1.0",
+  "exportDate": "2024-01-15T10:30:00Z",
+  "application": "Indicators Management System",
+  "strategies": [
+    {
+      "name": "Multi-Timeframe Trend Strategy",
+      "enabled": true,
+      "alarmEnabled": true,
+      "symbolExclusive": false,
+      "watchlistName": "Technology Stocks",
+      "exclusiveSymbols": [],
+      "parameters": {
+        "maxOpenPositions": 5,
+        "riskPerTrade": 0.02,
+        "maxDailyLoss": 0.05,
+        "tradeExecution": "LIMIT",
+        "slippageTolerance": 0.001,
+        "timeoutMinutes": 30,
+        "autoCloseEndOfDay": true,
+        "positionSizing": "FIXED",
+        "maxPortfolioRisk": 0.25
+      },
+      "strategyParameters": {
+        "MACD": {
+          "fastPeriod": 12,
+          "slowPeriod": 26,
+          "signalPeriod": 9,
+          "smoothing": "EMA",
+          "histogramThreshold": 0.001,
+          "trendConfirmation": true
+        },
+        "RSI": {
+          "period": 14,
+          "overbought": 70,
+          "oversold": 30,
+          "smoothing": true,
+          "divergenceLookback": 20
+        },
+        "VWAP": {
+          "session": "STANDARD",
+          "anchored": false,
+          "deviationBands": 2.0,
+          "volumeType": "TICK"
+        }
+      },
+      "timeframeIndicators": {
+        "1W": ["MACD", "Trend"],
+        "1D": ["VWAP", "RSI", "PSAR(0.01)"],
+        "4H": ["HeikenAshi", "Volume20MA", "MACD"]
+      },
+      "timeframeCustomIndicators": {
+        "1D": [
+          {
+            "name": "Custom MACD Fast",
+            "type": "MACD",
+            "parameters": {
+              "fast": 8,
+              "slow": 17,
+              "signal": 5
+            },
+            "displayName": "MACD(8,17,5)"
+          }
+        ],
+        "4H": [
+          {
+            "name": "Custom RSI Sensitive",
+            "type": "RSI",
+            "parameters": {
+              "period": 9
+            },
+            "displayName": "RSI(9)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Intraday Breakout Scanner",
+      "enabled": true,
+      "alarmEnabled": false,
+      "symbolExclusive": true,
+      "watchlistName": null,
+      "exclusiveSymbols": ["AAPL", "GOOGL", "MSFT", "TSLA", "NVDA"],
+      "parameters": {
+        "maxOpenPositions": 3,
+        "riskPerTrade": 0.015,
+        "maxDailyLoss": 0.03,
+        "tradeExecution": "MARKET",
+        "slippageTolerance": 0.002,
+        "timeoutMinutes": 15,
+        "autoCloseEndOfDay": false,
+        "positionSizing": "VOLATILITY",
+        "maxPortfolioRisk": 0.15
+      },
+      "strategyParameters": {
+        "HighestCloseOpen": {
+          "timeRange": "1D",
+          "session": "standard",
+          "lookback": 5,
+          "confirmationBars": 2,
+          "volumeConfirmation": true
+        },
+        "PSAR(0.01)": {
+          "step": 0.01,
+          "max": 0.2,
+          "acceleration": "STANDARD"
+        },
+        "Volume20MA": {
+          "period": 20,
+          "smoothing": "SMA",
+          "threshold": 1.5
+        }
+      },
+      "timeframeIndicators": {
+        "1H": ["HighestCloseOpen", "VWAP", "PSAR(0.01)"],
+        "30Min": ["Volume20MA", "RSI"],
+        "15Min": ["HeikenAshi", "PSAR(0.01)"]
+      },
+      "timeframeCustomIndicators": {
+        "1H": [
+          {
+            "name": "Fast VWAP",
+            "type": "VWAP",
+            "parameters": {
+              "session": "premarket",
+              "anchored": true
+            },
+            "displayName": "VWAP(Premarket)"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Swing Trading Strategy",
+      "enabled": false,
+      "alarmEnabled": true,
+      "symbolExclusive": false,
+      "watchlistName": "Large Cap Stocks",
+      "exclusiveSymbols": [],
+      "parameters": {
+        "maxOpenPositions": 8,
+        "riskPerTrade": 0.025,
+        "maxDailyLoss": 0.04,
+        "tradeExecution": "LIMIT",
+        "slippageTolerance": 0.0015,
+        "timeoutMinutes": 120,
+        "autoCloseEndOfDay": false,
+        "positionSizing": "FIXED_FRACTIONAL",
+        "maxPortfolioRisk": 0.20
+      },
+      "strategyParameters": {
+        "Trend": {
+          "sma1": 9,
+          "sma2": 21,
+          "sma3": 50,
+          "trendConfirmation": "MULTIPLE",
+          "smoothing": "EMA"
+        },
+        "MACD": {
+          "fastPeriod": 8,
+          "slowPeriod": 21,
+          "signalPeriod": 5,
+          "smoothing": "EMA",
+          "histogramThreshold": 0.0005
+        },
+        "PSAR(0.05)": {
+          "step": 0.05,
+          "max": 0.2,
+          "acceleration": "ADAPTIVE"
+        }
+      },
+      "timeframeIndicators": {
+        "1W": ["Trend", "MACD"],
+        "1D": ["VWAP", "PSAR(0.05)", "Volume20MA"],
+        "4H": ["RSI", "HeikenAshi"]
+      },
+      "timeframeCustomIndicators": {
+        "1D": [
+          {
+            "name": "Moving Average Trend",
+            "type": "MOVINGAVERAGE",
+            "parameters": {
+              "period": 50,
+              "type": "EMA"
+            },
+            "displayName": "EMA(50)"
+          },
+          {
+            "name": "Weekly High Low",
+            "type": "HIGHESTCLOSEOPEN",
+            "parameters": {
+              "timeRange": "1W",
+              "session": "all",
+              "lookback": 3
+            },
+            "displayName": "HighestCloseOpen(1W,all,3)"
+          }
+        ]
+      }
+    }
+  ],
+  "customIndicators": [
+    {
+      "name": "Custom MACD Fast",
+      "type": "MACD",
+      "parameters": {
+        "fast": 8,
+        "slow": 17,
+        "signal": 5
+      },
+      "displayName": "MACD(8,17,5)"
+    },
+    {
+      "name": "Custom RSI Sensitive",
+      "type": "RSI",
+      "parameters": {
+        "period": 9
+      },
+      "displayName": "RSI(9)"
+    },
+    {
+      "name": "Fast Moving Average",
+      "type": "MOVINGAVERAGE",
+      "parameters": {
+        "period": 9,
+        "type": "EMA"
+      },
+      "displayName": "EMA(9)"
+    },
+    {
+      "name": "Slow Moving Average",
+      "type": "MOVINGAVERAGE",
+      "parameters": {
+        "period": 50,
+        "type": "SMA"
+      },
+      "displayName": "SMA(50)"
+    },
+    {
+      "name": "Daily High Low",
+      "type": "HIGHESTCLOSEOPEN",
+      "parameters": {
+        "timeRange": "1D",
+        "session": "standard",
+        "lookback": 5
+      },
+      "displayName": "HighestCloseOpen(1D,standard,5)"
+    },
+    {
+      "name": "Weekly High Low",
+      "type": "HIGHESTCLOSEOPEN",
+      "parameters": {
+        "timeRange": "1W",
+        "session": "all",
+        "lookback": 3
+      },
+      "displayName": "HighestCloseOpen(1W,all,3)"
+    },
+    {
+      "name": "Sensitive PSAR",
+      "type": "PSAR",
+      "parameters": {
+        "step": 0.01,
+        "max": 0.15
+      },
+      "displayName": "PSAR(0.01)"
+    },
+    {
+      "name": "Conservative PSAR",
+      "type": "PSAR",
+      "parameters": {
+        "step": 0.05,
+        "max": 0.25
+      },
+      "displayName": "PSAR(0.05)"
+    }
+  ],
+  "watchlists": {
+    "Technology Stocks": [
+      "AAPL", "GOOGL", "MSFT", "AMZN", "META", "NVDA", "TSLA", 
+      "ADBE", "INTC", "CSCO", "ORCL", "IBM", "QCOM", "TXN"
+    ],
+    "Large Cap Stocks": [
+      "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "BRK.B", "UNH",
+      "JNJ", "JPM", "V", "PG", "XOM", "NVDA", "HD", "CVX"
+    ],
+    "Financial Services": [
+      "JPM", "BAC", "WFC", "GS", "MS", "C", "AXP", 
+      "BLK", "SCHW", "PYPL", "V", "MA", "DFS", "COF"
+    ],
+    "Energy Sector": [
+      "XOM", "CVX", "COP", "SLB", "EOG", "PSX", "MPC",
+      "VLO", "KMI", "OXY", "HAL", "BKR", "DVN", "FANG"
+    ],
+    "Healthcare Stocks": [
+      "JNJ", "UNH", "PFE", "ABT", "TMO", "MRK", "LLY",
+      "ABBV", "AMGN", "GILD", "BMY", "CVS", "DHR", "SYK"
+    ],
+    "Consumer Cyclical": [
+      "AMZN", "TSLA", "HD", "NKE", "MCD", "LOW", "SBUX",
+      "TJX", "TGT", "BKNG", "MAR", "YUM", "CMG", "NCLH"
+    ]
+  },
+  "metadata": {
+    "totalStrategies": 3,
+    "totalCustomIndicators": 8,
+    "totalWatchlists": 6,
+    "exportedBy": "admin",
+    "exportNotes": "Sample configuration for demonstration purposes",
+    "compatibility": {
+      "minVersion": "3.0.0",
+      "maxVersion": "5.0.0"
+    }
+  }
+}
