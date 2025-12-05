@@ -14,6 +14,8 @@ public class AnalysisResult {
     private double sma20;
     private double sma200;
     private String smaTrend;
+    private double ema20;
+    private String ema20Trend;
         
     private double rsi;
     private String rsiTrend;
@@ -79,6 +81,8 @@ public class AnalysisResult {
     
     private Double vwap;
     private String vwapStatus;
+    
+    private long timestamp = System.currentTimeMillis();
     
     private BarSeries barSeries;
     
@@ -346,7 +350,51 @@ public class AnalysisResult {
 	public void setMovingAverageTargetValueZscore(double movingAverageTargetValueZscore) {
 		this.movingAverageTargetValueZscore = movingAverageTargetValueZscore;
 	}
+	public double getEma20() {
+		return ema20;
+	}
+	public void setEma20(double ema20) {
+		this.ema20 = ema20;
+	}
+	public String getEma20Trend() {
+		return ema20Trend;
+	}
+	public void setEma20Trend(String ema20Trend) {
+		this.ema20Trend = ema20Trend;
+	}
 	
+	public long getTimestamp() { return timestamp; }
 	
+	public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+	
+	public double getOverallZscore() {
+	    int count = 0;
+	    double total = 0.0;
+	    
+	    // Only include valid Z-scores (> 0)
+	    if (macdZscore > 0) { total += macdZscore; count++; }
+	    if (macd359Zscore > 0) { total += macd359Zscore; count++; }
+	    if (rsiZscore > 0) { total += rsiZscore; count++; }
+	    if (psar001Zscore > 0) { total += psar001Zscore; count++; }
+	    if (psar005Zscore > 0) { total += psar005Zscore; count++; }
+	    if (heikenAshiZscore > 0) { total += heikenAshiZscore; count++; }
+	    if (trendZscore > 0) { total += trendZscore; count++; }
+	    if (movingAverageTargetValueZscore > 0) { total += movingAverageTargetValueZscore; count++; }
+	    if (highestCloseOpenZscore > 0) { total += highestCloseOpenZscore; count++; }
+	    
+	    return count > 0 ? total / count : 0.0;
+	}
+
+	public String getOverallSignal() {
+	    double overall = getOverallZscore();
+	    if (overall >= 80) return "Very Strong";
+	    if (overall >= 70) return "Strong";
+	    if (overall >= 60) return "Moderate";
+	    if (overall >= 50) return "Slightly Bullish";
+	    if (overall >= 40) return "Neutral";
+	    if (overall >= 30) return "Slightly Bearish";
+	    if (overall >= 20) return "Weak";
+	    return "Very Weak";
+	}
 	
 }

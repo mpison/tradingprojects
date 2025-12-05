@@ -50,47 +50,60 @@ public class HeikenAshiStrategy extends AbstractIndicatorStrategy {
 	
 	// In HeikenAshiStrategy.java - Add this method
 	@Override
-	public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
-	    if (endIndex < 0) return 0.0;
-	    
-	    HeikenAshiIndicator heikenAshi = new HeikenAshiIndicator(series);
-	    
-	    double haClose = heikenAshi.getValue(endIndex).doubleValue();
-	    double haOpen = heikenAshi.getHeikenAshiOpen(endIndex).doubleValue();
-	    
-	    double zscore = 0.0;
-	    double maxPossibleScore = 0.0;
-	    
-	    // 1. Bullish Heiken Ashi candle - 60 points
-	    maxPossibleScore += 60;
-	    if (haClose > haOpen) {
-	        zscore += 60;
-	    }
-	    
-	    // 2. Strong bullish (no lower wick) - 20 points
-	    maxPossibleScore += 20;
-	    if (haClose > haOpen) {
-	        double haLow = heikenAshi.getHeikenAshiLow(endIndex).doubleValue();
-	        if (haOpen == haLow) {
-	            zscore += 20;
-	        }
-	    }
-	    
-	    // 3. Consecutive bullish candles - 20 points
-	    maxPossibleScore += 20;
-	    if (endIndex > 0) {
-	        double prevHaClose = heikenAshi.getValue(endIndex - 1).doubleValue();
-	        double prevHaOpen = heikenAshi.getHeikenAshiOpen(endIndex - 1).doubleValue();
-	        
-	        if (haClose > haOpen && prevHaClose > prevHaOpen) {
-	            zscore += 20;
-	        }
-	    }
-	    
-	    // Normalize to 100%
-	    double normalizedZscore = (zscore / maxPossibleScore) * MAX_ZSCORE;
-	    
-	    result.setHeikenAshiZscore(normalizedZscore);
-	    return normalizedZscore;
-	}
+    public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
+        if (endIndex < 0) return 0.0;
+        
+        HeikenAshiIndicator heikenAshi = new HeikenAshiIndicator(series);
+        
+        double haClose = heikenAshi.getValue(endIndex).doubleValue();
+        double haOpen = heikenAshi.getHeikenAshiOpen(endIndex).doubleValue();
+        double haHigh = heikenAshi.getHeikenAshiHigh(endIndex).doubleValue();
+        double haLow = heikenAshi.getHeikenAshiLow(endIndex).doubleValue();
+        
+        double zscore = 0.0;
+        double maxPossibleScore = 0.0;
+        
+        // 1. Bullish/Bearish candle direction - 40 points
+        maxPossibleScore += 40;
+        if (haClose > haOpen) {
+            zscore += 40; // Bullish
+        } else if (haClose < haOpen) {
+            zscore += 10; // Bearish
+        } else {
+            zscore += 25; // Neutral/Doji
+        }
+        
+        // 2. Candle strength (body size) - 30 points
+        maxPossibleScore += 30;
+        double bodySize = Math.abs(haClose - haOpen);
+        double totalRange = haHigh - haLow;
+        if (totalRange > 0) {
+            double bodyRatio = bodySize / totalRange;
+            zscore += (bodyRatio * 30);
+        }
+        
+        // 3. Trend consistency - 30 points
+        maxPossibleScore += 30;
+        if (endIndex > 0) {
+            double prevHaClose = heikenAshi.getValue(endIndex - 1).doubleValue();
+            double prevHaOpen = heikenAshi.getHeikenAshiOpen(endIndex - 1).doubleValue();
+            
+            boolean currentBullish = haClose > haOpen;
+            boolean previousBullish = prevHaClose > prevHaOpen;
+            
+            if (currentBullish == previousBullish) {
+                zscore += 30; // Same trend continues
+            } else {
+                zscore += 10; // Trend reversal
+            }
+        } else {
+            zscore += 15; // First candle, neutral score
+        }
+        
+        // Normalize to 100%
+        double normalizedZscore = normalizeScore(zscore, maxPossibleScore);
+        
+        result.setHeikenAshiZscore(normalizedZscore);
+        return normalizedZscore;
+    }
 }

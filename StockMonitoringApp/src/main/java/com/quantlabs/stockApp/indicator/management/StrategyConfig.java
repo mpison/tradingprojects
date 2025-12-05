@@ -1,6 +1,11 @@
 package com.quantlabs.stockApp.indicator.management;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
+import org.json.JSONObject;
 
 public class StrategyConfig {
     private String name;
@@ -195,6 +200,38 @@ public class StrategyConfig {
         duplicate.setSymbolExclusive(this.symbolExclusive);
         duplicate.setParameters(new HashMap<>(this.parameters));
         return duplicate;
+    }
+    
+ // In StrategyConfig class, add these methods:
+    public JSONObject getIndicatorWeightsAsJSON(String timeframe) {
+        Object weightsObj = parameters.get("indicatorWeights_" + timeframe);
+        
+        if (weightsObj instanceof String) {
+            try {
+                return new JSONObject((String) weightsObj);
+            } catch (Exception e) {
+                System.err.println("Error parsing indicator weights JSON for " + timeframe + ": " + e.getMessage());
+            }
+        } else if (weightsObj instanceof JSONObject) {
+            return (JSONObject) weightsObj;
+        } else if (weightsObj instanceof Map) {
+            // Convert legacy Map to JSONObject
+            @SuppressWarnings("unchecked")
+            Map<String, Object> weightsMap = (Map<String, Object>) weightsObj;
+            return new JSONObject(weightsMap);
+        }
+        
+        return new JSONObject(); // Return empty JSON object if no weights found
+    }
+
+    public void setIndicatorWeightsFromJSON(String timeframe, JSONObject weightsJson) {
+        parameters.put("indicatorWeights_" + timeframe, weightsJson.toString());
+    }
+
+    public boolean hasIndicatorWeights(String timeframe) {
+        Object weightsObj = parameters.get("indicatorWeights_" + timeframe);
+        return weightsObj != null && 
+               (weightsObj instanceof String || weightsObj instanceof JSONObject || weightsObj instanceof Map);
     }
     
     @Override

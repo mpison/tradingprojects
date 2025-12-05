@@ -77,6 +77,8 @@ import org.jfree.data.time.RegularTimePeriod;
 import org.jfree.data.time.TimeSeries;
 import org.jfree.data.time.TimeSeriesCollection;
 
+import com.quantlabs.stockApp.model.PriceData;
+
 public class MonteCarloGraphUI {
 	private final List<String> symbols;
 	private final MonteCarloDataSourceManager dataSourceManager;
@@ -115,6 +117,12 @@ public class MonteCarloGraphUI {
 	private Map<String, Color> symbolColors = new HashMap<>();
 	private Map<String, Integer> symbolSeriesIndices = new HashMap<>();
 
+	// MonteCarlo settings
+	private Map<String, Object> monteCarloConfig;
+	private Map<String, PriceData> priceDataMap;
+	private List<String> selectedColumns;
+	private Map<String, Object> graphSettings;
+
 	// primary symbols
 	// Add these instance variables to the class
 	private JSpinner primaryThicknessSpinner;
@@ -142,7 +150,7 @@ public class MonteCarloGraphUI {
 	private String savedEndHour = "16";
 	private String savedEndMinute = "00";
 
-	private JComboBox<String> volumeDisplayCombo;
+	private JComboBox<String> displayOptionCombo;
 
 	public MonteCarloGraphUI(List<String> symbols, MonteCarloDataSourceManager dataSourceManager) {
 		this(symbols, dataSourceManager, "", new HashSet<>());
@@ -159,11 +167,22 @@ public class MonteCarloGraphUI {
 		this.dataSourceManager = dataSourceManager;
 		this.titleName = titleName;
 		this.topList = topList != null ? new HashSet<>(topList) : new HashSet<>();
+
+		// Ensure selectedColumns is initialized from monteCarloConfig
+		if (this.selectedColumns == null || this.selectedColumns.isEmpty()) {
+			@SuppressWarnings("unchecked")
+			List<String> configColumns = (List<String>) this.monteCarloConfig.get("selectedColumns");
+			if (configColumns != null) {
+				this.selectedColumns = new ArrayList<>(configColumns);
+				System.out.println("Loaded selectedColumns from config: " + this.selectedColumns.size() + " columns");
+			}
+		}
 	}
 
 	public MonteCarloGraphUI(List<String> symbols, MonteCarloDataSourceManager dataSourceManager, String titleName,
 			Set<String> topList, boolean useCustomTimeRange, ZonedDateTime startTime, ZonedDateTime endTime,
-			String timeframe) {
+			String timeframe, Map<String, Object> monteCarloConfig, Map<String, PriceData> priceDataMap,
+			List<String> selectedColumns, Map<String, Object> graphSettings) {
 		this.currentSymbols = new ArrayList<>(symbols);
 		this.symbols = new ArrayList<>(symbols);
 		this.dataSourceManager = dataSourceManager;
@@ -183,6 +202,11 @@ public class MonteCarloGraphUI {
 			System.out.println("Initialized with custom time range: " + startTime + " to " + endTime + " timeframe: "
 					+ this.currentTimeframe);
 		}
+
+		this.monteCarloConfig = monteCarloConfig != null ? new HashMap<>(monteCarloConfig) : new HashMap<>();
+		this.priceDataMap = priceDataMap != null ? new HashMap<>(priceDataMap) : new HashMap<>();
+		this.selectedColumns = selectedColumns != null ? new ArrayList<>(selectedColumns) : new ArrayList<>();
+		this.graphSettings = graphSettings != null ? new HashMap<>(graphSettings) : new HashMap<>();
 	}
 
 	public void initialize() {
@@ -194,47 +218,47 @@ public class MonteCarloGraphUI {
 	}
 
 	private void loadInitialData() {
-	    System.out.println("Loading data for Monte Carlo simulation...");
-	    new SwingWorker<Map<String, Map<ZonedDateTime, Double[]>>, Void>() {
-	        @Override
-	        protected Map<String, Map<ZonedDateTime, Double[]>> doInBackground() {
-	            try {
-	                if (useCustomTimeRange) {
-	                    // Use custom time range for initial load
-	                    return fetchDataWithCustomTimeRange(currentSymbols);
-	                } else {
-	                    // Use default current time range
-	                    ZonedDateTime end = ZonedDateTime.now(ZoneOffset.UTC);
-	                    ZonedDateTime start = end.minusDays(7);
-	                    return dataSourceManager.fetchData(currentSymbols, start, end);
-	                }
-	            } catch (Exception e) {
-	                System.err.println("Error in initial data load: " + e.getMessage());
-	                return new HashMap<>();
-	            }
-	        }
+		System.out.println("Loading data for Monte Carlo simulation...");
+		new SwingWorker<Map<String, Map<ZonedDateTime, Double[]>>, Void>() {
+			@Override
+			protected Map<String, Map<ZonedDateTime, Double[]>> doInBackground() {
+				try {
+					if (useCustomTimeRange) {
+						// Use custom time range for initial load
+						return fetchDataWithCustomTimeRange(currentSymbols);
+					} else {
+						// Use default current time range
+						ZonedDateTime end = ZonedDateTime.now(ZoneOffset.UTC);
+						ZonedDateTime start = end.minusDays(7);
+						return dataSourceManager.fetchData(currentSymbols, start, end);
+					}
+				} catch (Exception e) {
+					System.err.println("Error in initial data load: " + e.getMessage());
+					return new HashMap<>();
+				}
+			}
 
-	        @Override
-	        protected void done() {
-	            try {
-	                Map<String, Map<ZonedDateTime, Double[]>> result = get();
-	                if (result.isEmpty()) {
-	                    JOptionPane.showMessageDialog(null, "No valid data to display for Monte Carlo graph", "Error",
-	                            JOptionPane.ERROR_MESSAGE);
-	                    return;
-	                }
-	                symbolData.putAll(result);
-	                createMonteCarloLineGraph();
-	                
-	                // Update chart title based on initial time range
-	                updateChartTitle();
-	                
-	            } catch (Exception e) {
-	                JOptionPane.showMessageDialog(null, "Error creating graph: " + e.getMessage(), "Error",
-	                        JOptionPane.ERROR_MESSAGE);
-	            }
-	        }
-	    }.execute();
+			@Override
+			protected void done() {
+				try {
+					Map<String, Map<ZonedDateTime, Double[]>> result = get();
+					if (result.isEmpty()) {
+						JOptionPane.showMessageDialog(null, "No valid data to display for Monte Carlo graph", "Error",
+								JOptionPane.ERROR_MESSAGE);
+						return;
+					}
+					symbolData.putAll(result);
+					createMonteCarloLineGraph();
+
+					// Update chart title based on initial time range
+					updateChartTitle();
+
+				} catch (Exception e) {
+					JOptionPane.showMessageDialog(null, "Error creating graph: " + e.getMessage(), "Error",
+							JOptionPane.ERROR_MESSAGE);
+				}
+			}
+		}.execute();
 	}
 
 	private void createMonteCarloLineGraph() {
@@ -743,8 +767,8 @@ public class MonteCarloGraphUI {
 		}
 
 		// Volume display combo is always enabled regardless of time range mode
-		if (volumeDisplayCombo != null) {
-			volumeDisplayCombo.setEnabled(true);
+		if (displayOptionCombo != null) {
+			displayOptionCombo.setEnabled(true);
 		}
 
 		// Update the main control panel time range combo visibility if needed
@@ -1356,31 +1380,36 @@ public class MonteCarloGraphUI {
 
 	// NEW METHOD: Toggle TopList - check only TopList symbols, uncheck others
 	public void toggleTopList() {
-		if (topList.isEmpty()) {
-			JOptionPane.showMessageDialog(frame, "TopList is empty. Please edit TopList first.", "Warning",
-					JOptionPane.WARNING_MESSAGE);
-			return;
-		}
 
-		// Uncheck all symbols first
-		uncheckAllSymbols();
+		SwingUtilities.invokeLater(() -> {
 
-		// Check only the symbols in TopList
-		for (String symbol : topList) {
-			JCheckBox checkbox = symbolCheckboxes.get(symbol);
-			if (checkbox != null) {
-				checkbox.setSelected(true);
+			if (topList.isEmpty()) {
+				// JOptionPane.showMessageDialog(frame, "TopList is empty. Please edit TopList
+				// first.", "Warning",
+				// JOptionPane.WARNING_MESSAGE);
+				return;
 			}
-		}
 
-		updateChartSeries(); // Update the chart to reflect changes
-		System.out.println("Toggled TopList: Checked only " + topList.size() + " TopList symbols");
+			// Uncheck all symbols first
+			uncheckAllSymbols();
 
-		/*
-		 * JOptionPane.showMessageDialog( frame, "Checked only TopList symbols: " +
-		 * String.join(", ", topList), "TopList Toggled",
-		 * JOptionPane.INFORMATION_MESSAGE );
-		 */
+			// Check only the symbols in TopList
+			for (String symbol : topList) {
+				JCheckBox checkbox = symbolCheckboxes.get(symbol);
+				if (checkbox != null) {
+					checkbox.setSelected(true);
+				}
+			}
+
+			updateChartSeries(); // Update the chart to reflect changes
+			System.out.println("Toggled TopList: Checked only " + topList.size() + " TopList symbols");
+
+			/*
+			 * JOptionPane.showMessageDialog( frame, "Checked only TopList symbols: " +
+			 * String.join(", ", topList), "TopList Toggled",
+			 * JOptionPane.INFORMATION_MESSAGE );
+			 */
+		});
 	}
 
 	// NEW METHOD: UnToggle TopList - check all symbols except TopList
@@ -1498,11 +1527,12 @@ public class MonteCarloGraphUI {
 		controlPanel.add(stopLiveButton);
 
 		// REPLACED: Volume Display Combo Box instead of Checkbox
-		controlPanel.add(new JLabel("Volume Display:"));
-		String[] volumeOptions = { "Display Current Volumes", "Display Current Total Volumes" };
-		volumeDisplayCombo = new JComboBox<>(volumeOptions);
-		volumeDisplayCombo.setSelectedItem("Display Current Volumes"); // Default
-		controlPanel.add(volumeDisplayCombo);
+		controlPanel.add(new JLabel("Display Option:"));
+		String[] volumeOptions = { "Display Current Volumes", "Display Current Total Volumes",
+				"PriceData Assigned Attributes" };
+		displayOptionCombo = new JComboBox<>(volumeOptions);
+		displayOptionCombo.setSelectedItem("PriceData Assigned Attributes"); // Default
+		controlPanel.add(displayOptionCombo);
 
 		return controlPanel;
 	}
@@ -1541,7 +1571,7 @@ public class MonteCarloGraphUI {
 		chartPanel.addMouseMotionListener(new MouseMotionAdapter() {
 			@Override
 			public void mouseMoved(MouseEvent e) {
-				String selectedVolumeMode = (String) volumeDisplayCombo.getSelectedItem();
+				String selectedDisplayMode = (String) displayOptionCombo.getSelectedItem();
 
 				Point2D p = chartPanel.translateScreenToJava2D(e.getPoint());
 				PlotRenderingInfo plotInfo = chartPanel.getChartRenderingInfo().getPlotInfo();
@@ -1573,10 +1603,19 @@ public class MonteCarloGraphUI {
 					return;
 				}
 
-				if ("Display Current Volumes".equals(selectedVolumeMode)) {
+				// Handle different display modes
+				switch (selectedDisplayMode) {
+				case "Display Current Volumes":
 					showCurrentVolumes(volumeLabel, e, closestTime);
-				} else if ("Display Current Total Volumes".equals(selectedVolumeMode)) {
+					break;
+				case "Display Current Total Volumes":
 					showCurrentTotalVolumes(volumeLabel, e, closestTime);
+					break;
+				case "PriceData Assigned Attributes":
+					showPriceDataAttributes(volumeLabel, e, closestTime);
+					break;
+				default:
+					volumeLabel.setVisible(false);
 				}
 
 				plot.setDomainCrosshairValue(x);
@@ -1646,6 +1685,195 @@ public class MonteCarloGraphUI {
 		volumeLabel.setText(volumeInfo.toString());
 		volumeLabel.setVisible(true);
 		volumeLabel.setBounds(e.getX() + 10, e.getY() - 10, 250, 30 + currentSymbols.size() * 20);
+	}
+
+	/**
+	 * Shows PriceData assigned attributes for the specific time point
+	 */
+	private void showPriceDataAttributes(JLabel infoLabel, MouseEvent e, ZonedDateTime closestTime) {
+		if (priceDataMap == null || priceDataMap.isEmpty()) {
+			infoLabel.setText("<html><b>No PriceData available</b></html>");
+			infoLabel.setVisible(true);
+			infoLabel.setBounds(e.getX() + 10, e.getY() - 10, 200, 40);
+			return;
+		}
+
+		// Get selected columns from monteCarloConfig
+		@SuppressWarnings("unchecked")
+		List<String> selectedColumns = (List<String>) monteCarloConfig.get("selectedColumns");
+
+		if (selectedColumns == null || selectedColumns.isEmpty()) {
+			infoLabel.setText("<html><b>No columns selected</b><br>Configure in monteCarloConfig</html>");
+			infoLabel.setVisible(true);
+			infoLabel.setBounds(e.getX() + 10, e.getY() - 10, 250, 60);
+			return;
+		}
+
+		// Get display configuration
+		@SuppressWarnings("unchecked")
+		Map<String, Object> displayConfig = (Map<String, Object>) monteCarloConfig
+				.getOrDefault("priceDataDisplayConfig", new HashMap<>());
+
+		boolean useDashboardCollector = (boolean) displayConfig.getOrDefault("useDashboardCollector", true);
+		boolean includeZScore = (boolean) displayConfig.getOrDefault("includeZScore", true);
+		boolean showSymbolHeader = (boolean) displayConfig.getOrDefault("showSymbolHeader", true);
+		int maxColumnsPerSymbol = (int) displayConfig.getOrDefault("maxColumnsPerSymbol", 10);
+
+		StringBuilder info = new StringBuilder("<html><b>PriceData Attributes at ");
+		info.append(new SimpleDateFormat("MM-dd HH:mm").format(Date.from(closestTime.toInstant())));
+		info.append("</b><br>");
+
+		// Use DashboardColumnCollector to analyze and map the selected columns
+		Map<String, com.quantlabs.stockApp.utils.DashboardColumnCollector.ColumnMapping> columnMappings = com.quantlabs.stockApp.utils.DashboardColumnCollector
+				.analyzeColumns(selectedColumns);
+
+		int symbolCount = 0;
+		for (String symbol : currentSymbols) {
+			if (!symbolCheckboxes.get(symbol).isSelected())
+				continue;
+
+			PriceData priceData = priceDataMap.get(symbol);
+			if (priceData == null)
+				continue;
+
+			symbolCount++;
+
+			if (showSymbolHeader) {
+				info.append("<br><b>").append(symbol).append(":</b><br>");
+			} else {
+				info.append("<br>");
+			}
+
+			int columnCount = 0;
+			// Display each selected column using the mapping
+			for (String columnName : selectedColumns) {
+				if (columnCount >= maxColumnsPerSymbol) {
+					info.append("  ... (more columns)<br>");
+					break;
+				}
+
+				com.quantlabs.stockApp.utils.DashboardColumnCollector.ColumnMapping mapping = columnMappings
+						.get(columnName);
+
+				if (mapping != null) {
+					Object value = mapping.getValue(priceData);
+					if (value != null) {
+						info.append(String.format("  %s: %s<br>", columnName, formatValue(value)));
+						columnCount++;
+					}
+				} else {
+					// Fallback: try direct field access
+					Object value = getFallbackColumnValue(priceData, columnName);
+					if (value != null) {
+						info.append(String.format("  %s: %s<br>", columnName, formatValue(value)));
+						columnCount++;
+					}
+				}
+			}
+
+			// Add Z-Score information if configured
+			/*
+			 * if (includeZScore && priceData.getZScoreResults() != null &&
+			 * !priceData.getZScoreResults().isEmpty()) {
+			 * info.append("  <i>Z-Scores:</i><br>"); for (Map.Entry<String,
+			 * com.quantlabs.stockApp.indicator.management.ZScoreCalculator.ZScoreResult>
+			 * entry : priceData .getZScoreResults().entrySet()) { if
+			 * (selectedColumns.contains(entry.getKey())) { info.append(
+			 * String.format("    %s: %.1f<br>", entry.getKey(),
+			 * entry.getValue().getOverallScore())); } } }
+			 */
+
+			// Limit the number of symbols shown
+			if (symbolCount >= 5) { // Show max 5 symbols to avoid clutter
+				info.append("<br><i>... and " + (getCheckedSymbols().size() - 5) + " more symbols</i>");
+				break;
+			}
+		}
+
+		if (symbolCount == 0) {
+			info.append("<br><i>No symbols selected or no PriceData available</i>");
+		}
+
+		info.append("</html>");
+		infoLabel.setText(info.toString());
+		infoLabel.setVisible(true);
+
+		// Calculate appropriate size based on content
+		int lines = info.toString().split("<br>").length;
+		int estimatedHeight = 20 + lines * 16;
+		int maxHeight = 400; // Max height to avoid going off-screen
+		infoLabel.setBounds(e.getX() + 10, e.getY() - 10, 350, Math.min(estimatedHeight, maxHeight));
+	}
+
+	/**
+	 * Fallback method to get column value when mapping is not available
+	 */
+	private Object getFallbackColumnValue(PriceData priceData, String columnName) {
+		// Handle common column patterns
+		if (columnName.toLowerCase().contains("price")) {
+			return priceData.getLatestPrice();
+		} else if (columnName.toLowerCase().contains("volume") || columnName.toLowerCase().contains("vol")) {
+			if (columnName.toLowerCase().contains("prev") || columnName.toLowerCase().contains("previous")) {
+				return priceData.getPreviousVolume();
+			} else {
+				return priceData.getCurrentVolume();
+			}
+		} else if (columnName.toLowerCase().contains("change") || columnName.toLowerCase().contains("%")) {
+			return priceData.getPercentChange();
+		} else if (columnName.equalsIgnoreCase("Symbol") || columnName.equalsIgnoreCase("Ticker")) {
+			return priceData.getTicker();
+		}
+
+		return null;
+	}
+
+	/**
+	 * Format value for display
+	 */
+	private String formatValue(Object value) {
+		if (value == null)
+			return "N/A";
+
+		if (value instanceof Double) {
+			double doubleValue = (Double) value;
+			// Special handling for percentage values
+			if (value.toString().contains("%") || (Math.abs(doubleValue) < 1 && Math.abs(doubleValue) > 0.001)) {
+				return String.format("%.2f%%", doubleValue * 100);
+			}
+
+			// Format based on magnitude
+			if (Math.abs(doubleValue) >= 1000000) {
+				return String.format("$%,.1fM", doubleValue / 1000000);
+			} else if (Math.abs(doubleValue) >= 1000) {
+				return String.format("$%,.0f", doubleValue);
+			} else if (Math.abs(doubleValue) >= 1) {
+				return String.format("$%.2f", doubleValue);
+			} else {
+				return String.format("%.4f", doubleValue);
+			}
+		} else if (value instanceof Long) {
+			long longValue = (Long) value;
+			if (longValue >= 1000000) {
+				return String.format("%,.1fM", longValue / 1000000.0);
+			} else if (longValue >= 1000) {
+				return String.format("%,.1fK", longValue / 1000.0);
+			} else {
+				return String.format("%,d", longValue);
+			}
+		} else if (value instanceof Integer) {
+			return String.format("%,d", (Integer) value);
+		} else if (value instanceof Boolean) {
+			return (Boolean) value ? "✓" : "✗";
+		} else if (value instanceof String) {
+			String strValue = (String) value;
+			// Truncate long strings
+			/*
+			 * if (strValue.length() > 30) { return strValue.substring(0, 27) + "..."; }
+			 */
+			return strValue;
+		} else {
+			return value.toString();
+		}
 	}
 
 	/**
@@ -2166,41 +2394,43 @@ public class MonteCarloGraphUI {
 	}
 
 	private void refreshData() {
-		new SwingWorker<Map<String, Map<ZonedDateTime, Double[]>>, Void>() {
-			@Override
-			protected Map<String, Map<ZonedDateTime, Double[]>> doInBackground() {
-				try {
-					if (useCustomTimeRange) {
-						// Use custom time range
-						return fetchDataWithCustomTimeRange(getCheckedSymbols());
-					} else {
-						// Use current time with selected range
-						return fetchDataWithCurrentTime(getCheckedSymbols());
+		SwingUtilities.invokeLater(() -> {
+			new SwingWorker<Map<String, Map<ZonedDateTime, Double[]>>, Void>() {
+				@Override
+				protected Map<String, Map<ZonedDateTime, Double[]>> doInBackground() {
+					try {
+						if (useCustomTimeRange) {
+							// Use custom time range
+							return fetchDataWithCustomTimeRange(getCheckedSymbols());
+						} else {
+							// Use current time with selected range
+							return fetchDataWithCurrentTime(getCheckedSymbols());
+						}
+					} catch (Exception e) {
+						System.err.println("Error refreshing data: " + e.getMessage());
+						return new HashMap<>();
 					}
-				} catch (Exception e) {
-					System.err.println("Error refreshing data: " + e.getMessage());
-					return new HashMap<>();
 				}
-			}
 
-			@Override
-			protected void done() {
-				try {
-					Map<String, Map<ZonedDateTime, Double[]>> result = get();
-					symbolData.putAll(result);
-					updateChartSeries();
+				@Override
+				protected void done() {
+					try {
+						Map<String, Map<ZonedDateTime, Double[]>> result = get();
+						symbolData.putAll(result);
+						updateChartSeries();
 
-					// Add session time markers
-					addSimpleSessionMarkers();
+						// Add session time markers
+						addSimpleSessionMarkers();
 
-					// Update chart title based on current mode
-					updateChartTitle();
+						// Update chart title based on current mode
+						updateChartTitle();
 
-				} catch (Exception ex) {
-					System.out.println("Error updating graph: " + ex.getMessage());
+					} catch (Exception ex) {
+						System.out.println("Error updating graph: " + ex.getMessage());
+					}
 				}
-			}
-		}.execute();
+			}.execute();
+		});
 	}
 
 	private List<String> getCheckedSymbols() {
@@ -2825,9 +3055,12 @@ public class MonteCarloGraphUI {
 	}
 
 	public void frameToFront() {
-		frame.toFront();
-		frame.setExtendedState(JFrame.NORMAL);
-		frame.requestFocus();
+		SwingUtilities.invokeLater(() -> {
+			frame.toFront();
+			frame.setExtendedState(JFrame.NORMAL);
+			frame.requestFocus();
+		});
+
 	}
 
 	public void updateTitle(String newTitle) {
@@ -2839,62 +3072,99 @@ public class MonteCarloGraphUI {
 	public String getTitle() {
 		return titleName;
 	}
-	
+
 	/**
 	 * Update custom time range and refresh chart immediately
 	 */
 	public void updateCustomTimeRange(ZonedDateTime start, ZonedDateTime end, String timeframe) {
-	    this.useCustomTimeRange = true;
-	    this.currentTimeframe = timeframe != null ? timeframe : "1Min";
-	    
-	    // Update the saved values
-	    this.savedStartDate = Date.from(start.toInstant());
-	    this.savedEndDate = Date.from(end.toInstant());
-	    
-	    // Set times
-	    this.savedStartHour = String.format("%02d", start.getHour());
-	    this.savedStartMinute = String.format("%02d", start.getMinute());
-	    this.savedEndHour = String.format("%02d", end.getHour());
-	    this.savedEndMinute = String.format("%02d", end.getMinute());
-	    
-	    // Update control panel state
-	    updateControlPanelState(true);
-	    
-	    // Force refresh with new time range
-	    refreshDataWithCustomTimeRange();
-	    
-	    System.out.println("Updated custom time range: " + start + " to " + end + " timeframe: " + this.currentTimeframe);
+		SwingUtilities.invokeLater(() -> {
+			this.useCustomTimeRange = true;
+			this.currentTimeframe = timeframe != null ? timeframe : "1Min";
+
+			// Update the saved values
+			this.savedStartDate = Date.from(start.toInstant());
+			this.savedEndDate = Date.from(end.toInstant());
+
+			// Set times
+			this.savedStartHour = String.format("%02d", start.getHour());
+			this.savedStartMinute = String.format("%02d", start.getMinute());
+			this.savedEndHour = String.format("%02d", end.getHour());
+			this.savedEndMinute = String.format("%02d", end.getMinute());
+
+			// Update control panel state
+			updateControlPanelState(true);
+
+			// Force refresh with new time range
+			refreshDataWithCustomTimeRange();
+
+			System.out.println(
+					"Updated custom time range: " + start + " to " + end + " timeframe: " + this.currentTimeframe);
+		});
 	}
 
 	/**
-	 * Update current time mode with specific time range and refresh chart immediately
+	 * Update current time mode with specific time range and refresh chart
+	 * immediately
 	 */
 	public void updateCurrentTimeMode(String timeRange) {
-	    this.useCustomTimeRange = false;
-	    
-	    // Update the time range combo if provided
-	    if (timeRange != null && timeRangeCombo != null) {
-	        timeRangeCombo.setSelectedItem(timeRange);
-	    }
-	    
-	    // Update control panel state
-	    updateControlPanelState(false);
-	    
-	    // Force refresh with new time range
-	    refreshData();
-	    
-	    System.out.println("Updated current time mode with range: " + timeRange);
+		this.useCustomTimeRange = false;
+
+		// Update the time range combo if provided
+		if (timeRange != null && timeRangeCombo != null) {
+			timeRangeCombo.setSelectedItem(timeRange);
+		}
+
+		// Update control panel state
+		updateControlPanelState(false);
+
+		// Force refresh with new time range
+		refreshData();
+
+		System.out.println("Updated current time mode with range: " + timeRange);
 	}
 
 	/**
 	 * Force refresh the chart with current time range settings
 	 */
 	public void forceRefreshChart() {
-	    if (useCustomTimeRange) {
-	        refreshDataWithCustomTimeRange();
-	    } else {
-	        refreshData();
-	    }
-	    System.out.println("Forced chart refresh");
+		if (useCustomTimeRange) {
+			refreshDataWithCustomTimeRange();
+		} else {
+			refreshData();
+		}
+		System.out.println("Forced chart refresh");
 	}
+
+	public Map<String, Object> getMonteCarloConfig() {
+		return monteCarloConfig;
+	}
+
+	public void setMonteCarloConfig(Map<String, Object> monteCarloConfig) {
+		this.monteCarloConfig = monteCarloConfig;
+	}
+
+	public Map<String, PriceData> getPriceDataMap() {
+		return priceDataMap;
+	}
+
+	public void setPriceDataMap(Map<String, PriceData> priceDataMap) {
+		this.priceDataMap = priceDataMap;
+	}
+
+	public List<String> getSelectedColumns() {
+		return selectedColumns;
+	}
+
+	public void setSelectedColumns(List<String> selectedColumns) {
+		this.selectedColumns = selectedColumns;
+	}
+
+	public Map<String, Object> getGraphSettings() {
+		return graphSettings;
+	}
+
+	public void setGraphSettings(Map<String, Object> graphSettings) {
+		this.graphSettings = graphSettings;
+	}
+
 }

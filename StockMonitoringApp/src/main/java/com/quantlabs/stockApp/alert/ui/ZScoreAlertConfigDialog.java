@@ -36,6 +36,7 @@ import com.quantlabs.stockApp.alert.ZScoreAlertManager;
 import com.quantlabs.stockApp.alert.model.ZScoreAlertConfig;
 import com.quantlabs.stockApp.indicator.management.IndicatorsManagementApp;
 import com.quantlabs.stockApp.indicator.management.StrategyConfig;
+import com.quantlabs.stockApp.model.PriceData;
 import com.quantlabs.stockApp.reports.MonteCarloGraphApp;
 import com.quantlabs.stockApp.reports.MonteCarloGraphController;
 import com.quantlabs.stockApp.reports.MonteCarloGraphUI;
@@ -55,6 +56,9 @@ public class ZScoreAlertConfigDialog extends JDialog {
     
     // Counter for generating unique IDs
     private int nextConfigId = 1;
+    
+    Map<String, Object> monteCarloConfig;
+	Map<String, PriceData> priceDataMap;
 
     public ZScoreAlertConfigDialog(IStockDashboard parent, IndicatorsManagementApp indicatorsManagementApp, ZScoreAlertManager zScoreAlertManager) {
         this.setTitle("Z-Score Alert Configuration");
@@ -539,6 +543,10 @@ public class ZScoreAlertConfigDialog extends JDialog {
     @SuppressWarnings("null")
 	private void openOrUpdateMonteCarloWindow(String configKey, ZScoreAlertConfig zScoreconfig, int monitorRange, String strategy) {
         String columnName = configKey.split("\\|")[0];
+        
+        zScoreAlertManager.setPriceDataMap(priceDataMap);
+        zScoreAlertManager.setMonteCarloConfig(monteCarloConfig);
+        
         List<String> topSymbols = zScoreAlertManager.getCurrentTopSymbolsWithStrategy(columnName, monitorRange, strategy);//getCurrentTopSymbols(columnName, monitorRange, strategy);
 
         if (topSymbols.isEmpty()) {
@@ -551,7 +559,7 @@ public class ZScoreAlertConfigDialog extends JDialog {
         	Map<String, MonteCarloGraphApp> monteCarloApps = zScoreAlertManager.getMonteCarloApps();
         	
         	        
-        	String primarySymbol = indicatorsManagementApp.getGlobalWatchlists().get(parentDashboard.getCurrentWatchlistName()).getPrimarySymbol();
+        	String primarySymbol = indicatorsManagementApp.getGlobalWatchlists().get(parentDashboard.getCurrentWatchlistName()) != null ? indicatorsManagementApp.getGlobalWatchlists().get(parentDashboard.getCurrentWatchlistName()).getPrimarySymbol() : "";
         	
         	Set<String> primarySymbolSet = new HashSet<String>();
         	
@@ -578,12 +586,15 @@ public class ZScoreAlertConfigDialog extends JDialog {
                 if(topSymbols.size() > 0)
                 	existingApp.setTopList(new HashSet<>(topSymbols));
                 
+                existingApp.setPriceDataMap(priceDataMap);
+                existingApp.setMonteCarloConfig(monteCarloConfig);
+                
                 if (existingApp.isInitialized()) {                	
                     existingApp.updateSymbols(topSymbols);
                     monteCarloApps.put(configKey, existingApp);                    
                     parentDashboard.logToConsole("Updated Monte Carlo window for: " + configKey);
                 } else {
-                    existingApp.initialize(topSymbols, apptitle);
+                    existingApp.initialize(topSymbols, apptitle, monteCarloConfig, priceDataMap);
                 }
                 
                 existingApp.toggleTopList();
@@ -605,12 +616,15 @@ public class ZScoreAlertConfigDialog extends JDialog {
                 	MonteCarloGraphApp newApp = null;
                 	
                 	if(parentDashboard.getCurrentTimeRadio().isSelected()) {
-                		newApp = new MonteCarloGraphApp(topSymbols, getMonteCarloTitle(parentDashboard, columnName, strategy));	
+                		newApp = new MonteCarloGraphApp(topSymbols, getMonteCarloTitle(parentDashboard, columnName, strategy), monteCarloConfig, priceDataMap);	
                 	}else {
                 		ZonedDateTime start = parentDashboard.getStartDateTime();
 						ZonedDateTime end = parentDashboard.getEndDateTime();
 						newApp = new MonteCarloGraphApp(topSymbols, getMonteCarloTitle(parentDashboard, columnName, strategy), start, end, "1Min");
-                	}                    
+                	}     
+                	
+                	newApp.setPriceDataMap(priceDataMap);
+                	newApp.setMonteCarloConfig(monteCarloConfig);
                     
                     if(primarySymbolSet.size() > 0)
                     	newApp.setPrimarySymbols(primarySymbolSet);
@@ -915,8 +929,25 @@ public class ZScoreAlertConfigDialog extends JDialog {
     private void showWarning(String message) {
         JOptionPane.showMessageDialog(this, message, "Warning", JOptionPane.WARNING_MESSAGE);
     }
+    public Map<String, Object> getMonteCarloConfig() {
+		return monteCarloConfig;
+	}
 
-    // Custom cell renderer
+	public void setMonteCarloConfig(Map<String, Object> monteCarloConfig) {
+		this.monteCarloConfig = monteCarloConfig;
+	}
+
+	public Map<String, PriceData> getPriceDataMap() {
+		return priceDataMap;
+	}
+
+	public void setPriceDataMap(Map<String, PriceData> priceDataMap) {
+		this.priceDataMap = priceDataMap;
+	}
+
+
+
+	// Custom cell renderer
     private class ZScoreAlertCellRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,

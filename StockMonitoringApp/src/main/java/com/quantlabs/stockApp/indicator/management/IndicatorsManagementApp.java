@@ -74,6 +74,8 @@ public class IndicatorsManagementApp extends JFrame {
 	private static final String WATCHLISTS_FILE = "watchlists.dat";
 
 	private static final String[] TIMEFRAMES = { "1W", "1D", "4H", "1H", "30Min", "15Min", "5Min", "1Min" };
+	
+	private boolean isSaved = false;
 
 	// Menu components
 	private JMenuBar menuBar;
@@ -337,9 +339,9 @@ public class IndicatorsManagementApp extends JFrame {
 
 	// Data Persistence Methods
 	private void saveAllData() {
-		saveStrategies();
-		saveCustomIndicators();
-		saveWatchlists();
+		//saveStrategies();
+		//saveCustomIndicators();
+		//saveWatchlists();
 		logToUI("💾 All data saved successfully");
 	}
 
@@ -799,7 +801,7 @@ public class IndicatorsManagementApp extends JFrame {
 		Map<String, Set<CustomIndicator>> allCustomIndicators = new HashMap<>();
 		allCustomIndicators.put("global", new HashSet<>(globalCustomIndicators));
 
-		CustomIndicatorsManager manager = new CustomIndicatorsManager(this, allCustomIndicators);
+		CustomIndicatorsManager manager = new CustomIndicatorsManager(this, allCustomIndicators, this);
 		manager.setVisible(true);
 
 		if (manager.isSaved()) {
@@ -1577,6 +1579,19 @@ public class IndicatorsManagementApp extends JFrame {
 									+ ", watchlist: " + watchlistName + ")");
 						}
 					}
+					if (strategyObj instanceof StrategyConfig) {
+						StrategyConfig strategyConfig = (StrategyConfig) strategyObj;
+						String strategyName = strategyConfig.getName();
+						if (strategyName != null) {
+							strategyConfigurations.put(strategyName, strategyConfig);
+
+							boolean enabled = strategyConfig.isEnabled();//getBooleanFromMap(strategyMap, "enabled", false);
+							String watchlistName = strategyConfig.getWatchlistName();//getStringFromMap(strategyMap, "watchlistName", "");
+
+							logger.log("Imported strategy config: " + strategyName + " (enabled: " + enabled
+									+ ", watchlist: " + watchlistName + ")");
+						}
+					}
 				} catch (Exception e) {
 					logger.log("Error parsing strategy configuration: " + e.getMessage());
 				}
@@ -1677,7 +1692,7 @@ public class IndicatorsManagementApp extends JFrame {
 	}
 
 	// Import watchlists into Map<String, Set<String>>
-	private void importWatchlists(Object watchlists) {
+	public void importWatchlists(Object watchlists) {
 		globalWatchlists.clear(); // Clear existing watchlists
 
 		if (watchlists instanceof JSONArray) {
@@ -1735,6 +1750,21 @@ public class IndicatorsManagementApp extends JFrame {
 			}
 		}
 	}
+	
+	// Import watchlists into Map<String, Set<String>>
+		public void importWatchlists(Map<String, WatchlistData> watchlists) {
+			globalWatchlists.clear(); // Clear existing watchlists
+
+			if (watchlists instanceof Map) {
+				// Handle the case where watchlists is already in the new format
+				Map<?, ?> watchlistsMap = (Map<?, ?>) watchlists;
+				for (Map.Entry<?, ?> entry : watchlistsMap.entrySet()) {
+					if (entry.getKey() instanceof String && entry.getValue() instanceof WatchlistData) {
+						globalWatchlists.put((String) entry.getKey(), (WatchlistData) entry.getValue());
+					}
+				}
+			}
+		}
 
 	// Helper method to create CustomIndicator from JSON
 	private CustomIndicator createCustomIndicatorFromJson(JSONObject json) {
@@ -1789,7 +1819,7 @@ public class IndicatorsManagementApp extends JFrame {
 	private void initializeStrategyListModelWithData() {
 		strategyListModel.clear();
 
-		for (Map.Entry<String, Object> entry : strategyConfigurations.entrySet()) {
+		for (Map.Entry<String, Object> entry : strategyConfigurations.entrySet ()) {
 			try {
 				String strategyName = entry.getKey();
 				Object configObj = entry.getValue();
@@ -1942,6 +1972,8 @@ public class IndicatorsManagementApp extends JFrame {
 						+ strategyConfig.getAllCustomIndicators().size() + ")");
 
 				return strategyConfig;
+			} else if(configObj instanceof StrategyConfig) {
+				return (StrategyConfig) configObj;
 			}
 		} catch (Exception e) {
 			logToUI("❌ Error creating StrategyConfig: " + e.getMessage());
@@ -1956,8 +1988,8 @@ public class IndicatorsManagementApp extends JFrame {
 			logToUI("Starting configuration import...");
 
 			// Handle custom indicators
-			if (config.containsKey("globalCustomIndicators")) {
-				Object customIndicators = config.get("globalCustomIndicators");
+			if (config.containsKey("customIndicators")) {
+				Object customIndicators = config.get("customIndicators");
 				importCustomIndicators(customIndicators);
 				logToUI("✅ Imported " + globalCustomIndicators.size() + " custom indicators");
 			}
@@ -2173,6 +2205,14 @@ public class IndicatorsManagementApp extends JFrame {
 
 	public void setExecutionService(StrategyExecutionService executionService) {
 		this.executionService = executionService;
+	}
+
+	public boolean isSaved() {
+		return isSaved;
+	}
+
+	public void setSaved(boolean isSaved) {
+		this.isSaved = isSaved;
 	}
 
 }

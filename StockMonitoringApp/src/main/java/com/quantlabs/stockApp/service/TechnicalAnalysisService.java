@@ -1,6 +1,9 @@
 package com.quantlabs.stockApp.service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -8,15 +11,17 @@ import org.ta4j.core.BarSeries;
 
 import com.quantlabs.stockApp.data.ConsoleLogger;
 import com.quantlabs.stockApp.indicator.management.CustomIndicator;
+import com.quantlabs.stockApp.indicator.management.StrategyConfig;
+import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
 import com.quantlabs.stockApp.indicator.strategy.AdvancedVWAPIndicatorStrategy;
 import com.quantlabs.stockApp.indicator.strategy.BreakoutCountStrategy;
 import com.quantlabs.stockApp.indicator.strategy.CompositeBreakoutStrategy;
 import com.quantlabs.stockApp.indicator.strategy.HeikenAshiStrategy;
 import com.quantlabs.stockApp.indicator.strategy.HighestCloseOpenStrategy;
-import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
 import com.quantlabs.stockApp.indicator.strategy.MACDStrategy;
 import com.quantlabs.stockApp.indicator.strategy.MovingAverageStrategy;
 import com.quantlabs.stockApp.indicator.strategy.MovingAverageTargetValueStrategy;
+import com.quantlabs.stockApp.indicator.strategy.MultiTimeframeZScoreStrategy;
 import com.quantlabs.stockApp.indicator.strategy.PSARStrategy;
 import com.quantlabs.stockApp.indicator.strategy.RSIStrategy;
 import com.quantlabs.stockApp.indicator.strategy.TrendStrategy;
@@ -115,7 +120,7 @@ public class TechnicalAnalysisService {
                         st1.setTimeRange(timeRange);
                         st1.setSession(session);
                         st1.setIndexCounter(indexCounter);
-                    }                
+                    }
                     
                     strategy.analyzeSymbol(series, startRangeIndex, endRangeIndex, result);
                     
@@ -127,15 +132,26 @@ public class TechnicalAnalysisService {
         }
         
         // Execute custom indicators and store results using setCustomIndicatorValue
-        /*if (customIndicators != null && !customIndicators.isEmpty()) {
+        if (customIndicators != null && !customIndicators.isEmpty()) {
             for (CustomIndicator customIndicator : customIndicators) {
                 try {
                     String customIndicatorName = customIndicator.getName();
-                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
-                            startRangeIndex, endRangeIndex, timeframe, symbol);
+                    String cType = customIndicator.getType();
                     
-                    // Store the custom indicator result using the dedicated method
-                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
+                    List<String> notListed = new ArrayList<>();
+                    
+                    notListed.add("MULTITIMEFRAMEZSCORE");
+                    notListed.add("MOVINGAVERAGETARGETVALUE");
+                    
+                    if(!notListed.contains(cType.toUpperCase())) {
+                    
+	                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
+	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, null);
+	                    
+	                    // Store the custom indicator result using the dedicated method
+	                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
+                    
+                    }
                     
                 } catch (Exception e) {
                     // Handle custom indicator errors
@@ -144,7 +160,7 @@ public class TechnicalAnalysisService {
                     result.setCustomIndicatorValue(customIndicator.getName(), "Error: " + e.getMessage());
                 }
             }
-        }*/
+        }
         
         return result;
     }
@@ -200,11 +216,20 @@ public class TechnicalAnalysisService {
             for (CustomIndicator customIndicator : customIndicators) {
                 try {
                     String customIndicatorName = customIndicator.getName();
-                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
-                            startRangeIndex, endRangeIndex, timeframe, symbol, result, priceData);
+                    String cType = customIndicator.getType();
                     
-                    // Store the custom indicator result using the dedicated method
-                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
+                    List<String> listed = new ArrayList<>();
+                    
+                    listed.add("MULTITIMEFRAMEZSCORE");
+                    listed.add("MOVINGAVERAGETARGETVALUE");
+                    
+                    if(listed.contains(cType.toUpperCase())) {
+	                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
+	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, priceData);
+	                    
+	                    // Store the custom indicator result using the dedicated method
+	                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
+                    }
                     
                 } catch (Exception e) {
                     // Handle custom indicator errors
@@ -262,13 +287,91 @@ public class TechnicalAnalysisService {
                 case "HEIKENASHI":
                     return calculateHeikenAshiValue(customIndicator, series, startIndex, endIndex, parameters);
                     
-                // ADD THIS NEW CASE
                 case "MOVINGAVERAGETARGETVALUE":
                     return calculateMovingAverageTargetValue(customIndicator, series, startIndex, endIndex, parameters, timeframe, symbol, result, priceData);
+                
+                case "MULTITIMEFRAMEZSCORE":
+                    return calculateMultiTimeframeZScore(customIndicator, series, startIndex, endIndex, 
+                                                         parameters, timeframe, symbol, result, priceData);    
                     
                 default:
                     return "Unknown indicator type: " + type;
             }
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+    
+    private static String calculateMultiTimeframeZScore(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, 
+            String timeframe, String symbol, AnalysisResult result, PriceData priceData) {
+        
+        try {
+            // Get selected timeframes from parameters
+            List<String> selectedTimeframes = new ArrayList<>();
+            Object selectedTimeframesObj = parameters.get("selectedTimeframes");
+            
+            if (selectedTimeframesObj instanceof String) {
+                String selectedTimeframesStr = (String) selectedTimeframesObj;
+                if (!selectedTimeframesStr.isEmpty()) {
+                    selectedTimeframes = Arrays.asList(selectedTimeframesStr.split(","));
+                }
+            } else {
+                // Fallback: check individual timeframe parameters
+                String[] availableTimeframes = {"1W", "1D", "4H", "1H", "30Min", "15Min", "5Min", "1Min"};
+                for (String tf : availableTimeframes) {
+                    Object tfSelected = parameters.get("timeframe_" + tf);
+                    if (tfSelected instanceof Boolean && (Boolean) tfSelected) {
+                        selectedTimeframes.add(tf);
+                    }
+                }
+            }
+            
+            if (selectedTimeframes.isEmpty()) {
+                return "No timeframes selected";
+            }
+            
+            // Get the strategy configuration (you'll need to pass this or retrieve it)
+            // For now, we'll create a simple configuration
+            StrategyConfig strategyConfig = new StrategyConfig();
+            
+            if(parameters.get("strategyConfig") != null) {
+            	
+            	strategyConfig = (StrategyConfig) parameters.get("strategyConfig");
+            	
+            }else {
+            
+	            strategyConfig.setName("MultiTimeframeZScore_" + customIndicator.getName());
+	            
+	            // Set timeframe weights (equal weights by default)
+	            Map<String, Integer> timeframeWeights = new HashMap<>();
+	            int weightPerTimeframe = 100 / selectedTimeframes.size();
+	            int remainder = 100 % selectedTimeframes.size();
+	            
+	            int i = 0;
+	            for (String tf : selectedTimeframes) {
+	                int weight = weightPerTimeframe + (i < remainder ? 1 : 0);
+	                timeframeWeights.put(tf, weight);
+	                i++;
+	            }
+	            
+	            strategyConfig.getParameters().put("zscoreWeights", timeframeWeights);
+            }
+            
+            // Create and execute the MultiTimeframeZScoreStrategy
+            MultiTimeframeZScoreStrategy strategy = new MultiTimeframeZScoreStrategy(
+                strategyConfig, priceData, null // logger
+            );
+            
+            // Calculate Z-Score
+            double zscore = strategy.calculateZscore(series, result, series.getEndIndex());
+            
+            // Store in result for later use
+            result.addCustomValue("MultiTimeframeZScore_" + customIndicator.getName(), zscore);
+            
+            // Return formatted result
+            return String.format("Z-Score: %.1f/100 (Timeframes: %s)", zscore, String.join(", ", selectedTimeframes));
+            
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -551,7 +654,7 @@ public class TechnicalAnalysisService {
             String trendDirection = percentDifference > 0 ? "Bullish" : "Bearish";
             
             double tagetFromHighest = priceData.getHigh() - targetValue;
-            double tagetFromLow = priceData.getLow() + targetValue;            
+            double tagetFromLow = (priceData.getLow() < 1000) ? priceData.getLow() + targetValue : 0;            
             
             if(countDisplayEnabledParam > 2) {            
             	//return String.format("Target: %.2f, TargetPerctle: %.2f, Current: %.2f, %s by %.2f%% (%s)", 

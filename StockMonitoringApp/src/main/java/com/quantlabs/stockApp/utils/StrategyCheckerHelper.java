@@ -27,7 +27,7 @@ public class StrategyCheckerHelper {
 	private Consumer<String> logger;
 
 	// Bullish status definitions
-	private static final Set<String> BULLISH_STATUSES = Set.of("Bullish Crossover", "Bullish", "Strong Uptrend",
+	public static final Set<String> BULLISH_STATUSES = Set.of("Bullish Crossover", "Bullish", "Strong Uptrend",
 			"Mild Uptrend", "↑ Uptrend", "Buy", "Uptrend", "Strong Buy");
 
 	public StrategyCheckerHelper(IndicatorsManagementApp indicatorsManagementApp,
@@ -328,13 +328,13 @@ public class StrategyCheckerHelper {
 		}
 
 		String cleanStatus = cleanStatusString(status);
-		return BULLISH_STATUSES.contains(cleanStatus);
+		return BULLISH_STATUSES.contains(cleanStatus) || status.contains("Bullish") || cleanStatus.contains("Bullish");
 	}
 
 	/**
 	 * Clean status string by removing additional information
 	 */
-	private String cleanStatusString(String status) {
+	private static String cleanStatusString(String status) {
 		if (status == null) {
 			return "";
 		}

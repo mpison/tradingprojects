@@ -9,10 +9,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.swing.SwingUtilities;
+
 import com.quantlabs.stockApp.IStockDashboard;
 import com.quantlabs.stockApp.alert.model.ZScoreAlertConfig;
 import com.quantlabs.stockApp.alert.ui.ZScoreAlertConfigDialog;
 import com.quantlabs.stockApp.indicator.management.StrategyConfig;
+import com.quantlabs.stockApp.model.PriceData;
 import com.quantlabs.stockApp.reports.MonteCarloGraphApp;
 import com.quantlabs.stockApp.reports.MonteCarloGraphController;
 import com.quantlabs.stockApp.reports.MonteCarloGraphUI;
@@ -27,6 +30,9 @@ public class ZScoreAlertManager {
     
     // Cache for previous top symbols to detect changes
     private Map<String, List<String>> previousTopSymbols;
+    
+    Map<String, Object> monteCarloConfig;
+	Map<String, PriceData> priceDataMap;
 
     public ZScoreAlertManager(IStockDashboard dashboard) {
         this.dashboard = dashboard;
@@ -95,10 +101,13 @@ public class ZScoreAlertManager {
                 // Check for changes and trigger alerts
                 boolean hasTopListChanged = checkForSymbolChanges(configKey, config, currentTopSymbols);
                 
-                // Update Monte Carlo window if enabled
-                if (config.isMonteCarloEnabled()) {
-                    updateMonteCarloWindow(configKey, config, currentTopSymbols, columnName, strategy, hasTopListChanged);
-                }
+                SwingUtilities.invokeLater(() -> {
+	                // Update Monte Carlo window if enabled
+	                if (config.isMonteCarloEnabled()) {
+	                    updateMonteCarloWindow(configKey, config, currentTopSymbols, columnName, strategy, hasTopListChanged);
+	                }
+                
+                });
             }
             
         } catch (Exception e) {
@@ -418,7 +427,7 @@ public class ZScoreAlertManager {
                     
                     logToConsole("Updated Monte Carlo window for: " + config);
                 } else {
-                    existingApp.initialize(currentTopSymbols, apptitle);
+                    existingApp.initialize(currentTopSymbols, apptitle, monteCarloConfig, priceDataMap);
                 }
                 
                 if(existingApp.checkIfClosed()) {
@@ -428,6 +437,9 @@ public class ZScoreAlertManager {
                 if(!existingApp.getTitle().equals(apptitle)){
                 	existingApp.updateTitle(apptitle);
                 }
+                
+                existingApp.setPriceDataMap(priceDataMap);
+                existingApp.setMonteCarloConfig(monteCarloConfig);
                 
                 waitForInitializationAndAttachListener(existingApp, config);
                 
@@ -444,7 +456,7 @@ public class ZScoreAlertManager {
 					existingApp.updateCustomTimeRange(start, end, "1Min");
             	}  
                 
-            } else {
+            } else if(!currentTopSymbols.isEmpty() || currentTopSymbols.size() > 0){
                 try {
                 	
                 	String primarySymbol = strategyCheckerHelper.getIndicatorsManagementApp().getGlobalWatchlists().get(dashboard.getCurrentWatchlistName()).getPrimarySymbol();
@@ -466,9 +478,12 @@ public class ZScoreAlertManager {
                 	
                     //MonteCarloGraphApp newApp = new MonteCarloGraphApp(currentTopSymbols, ZScoreAlertConfigDialog.getMonteCarloTitle(dashboard, columnName, strategy));
                     
+                	newApp.setPriceDataMap(priceDataMap);
+                	newApp.setMonteCarloConfig(monteCarloConfig);
                     
                     newApp.setPrimarySymbols(primarySymbolSet);
                     newApp.setTopList(new HashSet<>(currentTopSymbols));
+                    monteCarloApps.put(config, newApp);
                     //newApp.toggleTopList();
 					/*
 					 * if(zScoreconfig.isAlarmOn()) { newApp.frameToFront(); }
@@ -477,7 +492,7 @@ public class ZScoreAlertManager {
                     waitForInitializationAndAttachListener(newApp, config);
                     
                     
-                    monteCarloApps.put(config, newApp);
+                   
                     logToConsole("Opened Monte Carlo window for: " + config);
                 } catch (Exception e) {
                     logToConsole("Error opening Monte Carlo window for " + config + ": " + e.getMessage());
@@ -1136,6 +1151,22 @@ public class ZScoreAlertManager {
 
 	public void setPreviousTopSymbols(Map<String, List<String>> previousTopSymbols) {
 		this.previousTopSymbols = previousTopSymbols;
+	}
+
+	public Map<String, Object> getMonteCarloConfig() {
+		return monteCarloConfig;
+	}
+
+	public void setMonteCarloConfig(Map<String, Object> monteCarloConfig) {
+		this.monteCarloConfig = monteCarloConfig;
+	}
+
+	public Map<String, PriceData> getPriceDataMap() {
+		return priceDataMap;
+	}
+
+	public void setPriceDataMap(Map<String, PriceData> priceDataMap) {
+		this.priceDataMap = priceDataMap;
 	}
 
 

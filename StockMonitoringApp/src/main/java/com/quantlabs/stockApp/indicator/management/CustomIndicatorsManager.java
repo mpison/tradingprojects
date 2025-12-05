@@ -10,10 +10,14 @@ public class CustomIndicatorsManager extends JDialog {
     private JList<CustomIndicator> indicatorsList;
     private Map<String, Set<CustomIndicator>> customIndicatorsMap;
     private boolean saved = false;
+    private IndicatorsManagementApp indicatorsManagementApp; // Add this field
     
-    public CustomIndicatorsManager(JDialog parent, Map<String, Set<CustomIndicator>> customIndicatorsMap) {
+ // Update constructors to accept IndicatorsManagementApp
+    public CustomIndicatorsManager(JDialog parent, Map<String, Set<CustomIndicator>> customIndicatorsMap, 
+                                   IndicatorsManagementApp app) {
         super(parent, "Manage Custom Indicators", true);
         this.customIndicatorsMap = customIndicatorsMap != null ? customIndicatorsMap : new HashMap<>();
+        this.indicatorsManagementApp = app; // Set the app reference
         initializeUI();
         loadExistingIndicators();
         pack();
@@ -21,10 +25,12 @@ public class CustomIndicatorsManager extends JDialog {
         setSize(600, 500);
     }
     
-    // Also add a constructor that accepts JFrame for flexibility
-    public CustomIndicatorsManager(JFrame parent, Map<String, Set<CustomIndicator>> customIndicatorsMap) {
+    // Also update the JFrame constructor
+    public CustomIndicatorsManager(JFrame parent, Map<String, Set<CustomIndicator>> customIndicatorsMap,
+                                   IndicatorsManagementApp app) {
         super(parent, "Manage Custom Indicators", true);
         this.customIndicatorsMap = customIndicatorsMap != null ? customIndicatorsMap : new HashMap<>();
+        this.indicatorsManagementApp = app; // Set the app reference
         initializeUI();
         loadExistingIndicators();
         pack();
@@ -100,7 +106,8 @@ public class CustomIndicatorsManager extends JDialog {
     }
     
     private void showCustomIndicatorDialog(CustomIndicator existingIndicator) {
-        CustomIndicatorDialog dialog = new CustomIndicatorDialog(this, existingIndicator);
+        // Pass the indicatorsManagementApp to CustomIndicatorDialog
+        CustomIndicatorDialog dialog = new CustomIndicatorDialog(this, existingIndicator, indicatorsManagementApp);
         dialog.setVisible(true);
         
         if (dialog.isSaved()) {

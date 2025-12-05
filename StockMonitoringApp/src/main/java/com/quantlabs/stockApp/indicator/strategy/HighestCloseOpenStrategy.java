@@ -83,7 +83,7 @@ public class HighestCloseOpenStrategy extends AbstractIndicatorStrategy {
                         //previousStatuses.put("HighestCloseOpen", result.getHighestCloseOpenStatus());
                     } else {
                         // Handle null values
-                        result.setHighestCloseOpen(Double.NaN);
+                        result.setHighestCloseOpen(0);
                         result.setHighestCloseOpenStatus("N/A (No data)");
                         //previousStatuses.put("HighestCloseOpen", "N/A");
                         //logToConsole("Warning: No HighestCloseOpen data for " + symbol + " " + tf);
@@ -91,12 +91,12 @@ public class HighestCloseOpenStrategy extends AbstractIndicatorStrategy {
                     
                 } catch (Exception e) {
                     //logToConsole("Error calculating HighestCloseOpen for " + symbol + " " + tf + ": " + e.getMessage());
-                    result.setHighestCloseOpen(Double.NaN);
+                    result.setHighestCloseOpen(0);
                     result.setHighestCloseOpenStatus("Error");
                     //previousStatuses.put("HighestCloseOpen", "Error");
                 }
             } else {
-                result.setHighestCloseOpen(Double.NaN);
+                result.setHighestCloseOpen(0);
                 result.setHighestCloseOpenStatus("No session data");
                 //previousStatuses.put("HighestCloseOpen", "No session data");
             }
@@ -325,21 +325,138 @@ public class HighestCloseOpenStrategy extends AbstractIndicatorStrategy {
 	
 	// In HighestCloseOpenStrategy.java - Alternative implementation
 	@Override
-	public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
-	    String status = result.getHighestCloseOpenStatus();
-	    double zscore = 0.0;
-	    
-	    // If status contains "Uptrend", set 100 points
-	    if (status != null && status.toLowerCase().contains("uptrend")) {
-	        zscore = MAX_ZSCORE; // 100 points
-	    }
-	    
-	    // Set it on the result object
-	    result.setHighestCloseOpenZscore(zscore);
-	    
-	    // Also store as custom indicator value for display
-	    result.setCustomIndicatorValue(getName() + "_Zscore", String.format("%.1f", zscore));
-	    
-	    return zscore;
-	}
+    public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
+        if (series == null || endIndex < 0 || endIndex >= series.getBarCount()) {
+            return 0.0;
+        }
+        
+        double zscore = 0.0;
+        double maxPossibleScore = 0.0;
+        
+        // Get current values
+        double currentPrice = result.getPrice();
+        double highestValue = result.getHighestCloseOpen();
+        String status = result.getHighestCloseOpenStatus();
+        
+        // Skip if no valid data
+        if (Double.isNaN(highestValue) || Double.isNaN(currentPrice)) {
+            result.setHighestCloseOpenZscore(0.0);
+            return 0.0;
+        }
+        
+        // 1. Trend Direction - 40 points
+        maxPossibleScore += 40;
+        boolean isUptrend = status != null && status.toLowerCase().contains("uptrend");
+        if (isUptrend) {
+            zscore += 40; // Uptrend
+        } else {
+            zscore += 10; // Downtrend
+        }
+        
+        // 2. Price Proximity to Highest Value - 30 points
+        maxPossibleScore += 30;
+        double priceDifference = currentPrice - highestValue;
+        double proximityScore = 0.0;
+        
+        if (priceDifference >= 0) {
+            // At or above the highest value - strong bullish
+            proximityScore = 30;
+        } else {
+            // Below the highest value - calculate how close
+            double percentBelow = (Math.abs(priceDifference) / highestValue) * 100.0;
+            if (percentBelow <= 1.0) {
+                proximityScore = 25; // Very close (within 1%)
+            } else if (percentBelow <= 3.0) {
+                proximityScore = 20; // Close (within 3%)
+            } else if (percentBelow <= 5.0) {
+                proximityScore = 15; // Moderately close (within 5%)
+            } else if (percentBelow <= 10.0) {
+                proximityScore = 10; // Somewhat close (within 10%)
+            } else {
+                proximityScore = 5; // Far from highest value
+            }
+        }
+        zscore += proximityScore;
+        
+        // 3. Recent Breakout Strength - 20 points
+        maxPossibleScore += 20;
+        if (isUptrend && priceDifference > 0) {
+            // Recently broke above highest value
+            double breakoutStrength = Math.min(20, (priceDifference / highestValue) * 1000);
+            zscore += breakoutStrength;
+        } else if (isUptrend) {
+            // In uptrend but not above highest value yet
+            zscore += 10;
+        } else {
+            // Downtrend
+            zscore += 5;
+        }
+        
+        // 4. Historical Context - 10 points
+        maxPossibleScore += 10;
+        if (endIndex > 0) {
+            double previousPrice = series.getBar(endIndex - 1).getClosePrice().doubleValue();
+            boolean previousWasUptrend = previousPrice >= highestValue;
+            
+            if (isUptrend && previousWasUptrend) {
+                zscore += 10; // Consistent uptrend
+            } else if (isUptrend && !previousWasUptrend) {
+                zscore += 7; // New uptrend
+            } else if (!isUptrend && previousWasUptrend) {
+                zscore += 3; // Recent breakdown
+            } else {
+                zscore += 1; // Consistent downtrend
+            }
+        } else {
+            zscore += 5; // First data point
+        }
+        
+        // Normalize to 100%
+        double normalizedZscore = normalizeScore(zscore, maxPossibleScore);
+        
+        result.setHighestCloseOpenZscore(normalizedZscore);
+        return normalizedZscore;
+    }
+
+    // Alternative simpler version if you prefer:
+    public double calculateZscoreSimple(BarSeries series, AnalysisResult result, int endIndex) {
+        if (series == null || endIndex < 0 || endIndex >= series.getBarCount()) {
+            return 0.0;
+        }
+        
+        double currentPrice = result.getPrice();
+        double highestValue = result.getHighestCloseOpen();
+        String status = result.getHighestCloseOpenStatus();
+        
+        if (Double.isNaN(highestValue) || Double.isNaN(currentPrice)) {
+            return 0.0;
+        }
+        
+        double zscore = 0.0;
+        
+        // 1. Basic trend - 60 points
+        boolean isUptrend = status != null && status.toLowerCase().contains("uptrend");
+        if (isUptrend) {
+            zscore += 60;
+        } else {
+            zscore += 20;
+        }
+        
+        // 2. Price position relative to highest value - 40 points
+        double priceRatio = currentPrice / highestValue;
+        if (priceRatio >= 1.0) {
+            zscore += 40; // Above highest value
+        } else if (priceRatio >= 0.98) {
+            zscore += 35; // Very close (within 2%)
+        } else if (priceRatio >= 0.95) {
+            zscore += 25; // Close (within 5%)
+        } else if (priceRatio >= 0.90) {
+            zscore += 15; // Somewhat close (within 10%)
+        } else {
+            zscore += 5; // Far from highest value
+        }
+        
+        result.setHighestCloseOpenZscore(zscore);
+        return zscore;
+    }
 }

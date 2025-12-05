@@ -61,6 +61,7 @@ public class CompositeBreakoutStrategy extends AbstractIndicatorStrategy {
 		return "NA";
 	}
 	
+	// TODO 
 	@Override
 	public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
 	    // This is a composite strategy, individual Z-scores are calculated by component strategies

@@ -9,8 +9,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.swing.SwingUtilities;
+
 import com.quantlabs.stockApp.data.ConsoleLogger;
 import com.quantlabs.stockApp.data.StockDataProviderFactory;
+import com.quantlabs.stockApp.model.PriceData;
 
 public class MonteCarloGraphController {
 	private final List<String> initialSymbols;
@@ -22,42 +25,51 @@ public class MonteCarloGraphController {
 	private Set<String> topList = new HashSet<>();
 	private Map<String, Float> symbolThickness = new HashMap<>();
 	private Map<String, Color> symbolColors = new HashMap<>();
-	
+
 	// Add these to MonteCarloGraphController
 	private boolean useCustomTimeRange = false;
 	private ZonedDateTime customStartTime;
 	private ZonedDateTime customEndTime;
 	private String customTimeframe = "1Min";
 
+	// configs
+	private Map<String, Object> monteCarloConfig = new HashMap<>();
+	private Map<String, PriceData> priceDataMap = new HashMap<>();
+	private List<String> selectedColumns = new ArrayList<>();
+	private Map<String, Object> graphSettings = new HashMap<>();
+
+	// Update existing constructors in MonteCarloGraphController to call new
+	// constructor
 	public MonteCarloGraphController(List<String> symbols, StockDataProviderFactory providerFactory,
 			ConsoleLogger logger, String titleName) {
-		this(symbols, providerFactory, logger, titleName, new HashSet<>());
+		this(symbols, providerFactory, logger, titleName, new HashSet<>(), false, null, null, "1Min", null, null,
+				new ArrayList<>(), new HashMap<>());
 	}
 
 	public MonteCarloGraphController(List<String> symbols, StockDataProviderFactory providerFactory,
 			ConsoleLogger logger, String titleName, Set<String> topList) {
-		this.initialSymbols = new ArrayList<>(symbols);
-		this.currentSymbols = new ArrayList<>(symbols);
-		this.dataSourceManager = new MonteCarloDataSourceManager(providerFactory, logger);
-		this.titleName = titleName;
-		this.topList = topList != null ? new HashSet<>(topList) : new HashSet<>();
+		this(symbols, providerFactory, logger, titleName, topList, false, null, null, "1Min", null, null,
+				new ArrayList<>(), new HashMap<>());
 	}
 
-	// Constructor with existing data source manager
 	public MonteCarloGraphController(List<String> symbols, MonteCarloDataSourceManager dataSourceManager,
 			String titleName) {
-		this(symbols, dataSourceManager, titleName, new HashSet<>());
+		this(symbols, dataSourceManager, titleName, new HashSet<>(), false, null, null, "1Min", null, null,
+				new ArrayList<>(), new HashMap<>());
 	}
 
 	public MonteCarloGraphController(List<String> symbols, MonteCarloDataSourceManager dataSourceManager,
 			String titleName, Set<String> topList) {
-		this(symbols, dataSourceManager, titleName, topList, false, null, null, "1Min");
+		this(symbols, dataSourceManager, titleName, topList, false, null, null, "1Min", null, null, new ArrayList<>(),
+				new HashMap<>());
 	}
 
-	// NEW: Constructor with time range parameters
+	// NEW: Main constructor with all parameters
 	public MonteCarloGraphController(List<String> symbols, StockDataProviderFactory providerFactory,
 			ConsoleLogger logger, String titleName, Set<String> topList, boolean useCustomTimeRange,
-			ZonedDateTime startTime, ZonedDateTime endTime, String timeframe) {
+			ZonedDateTime startTime, ZonedDateTime endTime, String timeframe, Map<String, Object> monteCarloConfig,
+			Map<String, PriceData> priceDataMap, List<String> selectedColumns, Map<String, Object> graphSettings) {
+
 		this.initialSymbols = new ArrayList<>(symbols);
 		this.currentSymbols = new ArrayList<>(symbols);
 		this.dataSourceManager = new MonteCarloDataSourceManager(providerFactory, logger);
@@ -67,36 +79,49 @@ public class MonteCarloGraphController {
 		this.customStartTime = startTime;
 		this.customEndTime = endTime;
 		this.customTimeframe = timeframe;
-	}
-	
-	// NEW: Constructor with data source manager and time range
-	public MonteCarloGraphController(List<String> symbols, MonteCarloDataSourceManager dataSourceManager, String titleName, Set<String> topList,
-	                                boolean useCustomTimeRange, ZonedDateTime startTime, ZonedDateTime endTime, String timeframe) {
-	    this.initialSymbols = new ArrayList<>(symbols);
-	    this.currentSymbols = new ArrayList<>(symbols);
-	    this.dataSourceManager = dataSourceManager;
-	    this.titleName = titleName;
-	    this.topList = topList != null ? new HashSet<>(topList) : new HashSet<>();
-	    this.useCustomTimeRange = useCustomTimeRange;
-	    this.customStartTime = startTime;
-	    this.customEndTime = endTime;
-	    this.customTimeframe = timeframe;
+		this.monteCarloConfig = monteCarloConfig != null ? new HashMap<>(monteCarloConfig) : new HashMap<>();
+		this.priceDataMap = priceDataMap != null ? new HashMap<>(priceDataMap) : new HashMap<>();
+		this.selectedColumns = selectedColumns != null ? new ArrayList<>(selectedColumns) : new ArrayList<>();
+		this.graphSettings = graphSettings != null ? new HashMap<>(graphSettings) : new HashMap<>();
 	}
 
-	// Update showGraph method
+	// NEW: Constructor with data source manager
+	public MonteCarloGraphController(List<String> symbols, MonteCarloDataSourceManager dataSourceManager,
+			String titleName, Set<String> topList, boolean useCustomTimeRange, ZonedDateTime startTime,
+			ZonedDateTime endTime, String timeframe, Map<String, Object> monteCarloConfig,
+			Map<String, PriceData> priceDataMap, List<String> selectedColumns, Map<String, Object> graphSettings) {
+
+		this.initialSymbols = new ArrayList<>(symbols);
+		this.currentSymbols = new ArrayList<>(symbols);
+		this.dataSourceManager = dataSourceManager;
+		this.titleName = titleName;
+		this.topList = topList != null ? new HashSet<>(topList) : new HashSet<>();
+		this.useCustomTimeRange = useCustomTimeRange;
+		this.customStartTime = startTime;
+		this.customEndTime = endTime;
+		this.customTimeframe = timeframe;
+		this.monteCarloConfig = monteCarloConfig != null ? new HashMap<>(monteCarloConfig) : new HashMap<>();
+		this.priceDataMap = priceDataMap != null ? new HashMap<>(priceDataMap) : new HashMap<>();
+		this.selectedColumns = selectedColumns != null ? new ArrayList<>(selectedColumns) : new ArrayList<>();
+		this.graphSettings = graphSettings != null ? new HashMap<>(graphSettings) : new HashMap<>();
+	}
+
 	public void showGraph() {
-		this.graphUI = new MonteCarloGraphUI(initialSymbols, dataSourceManager, titleName, topList,
-                useCustomTimeRange, customStartTime, customEndTime, customTimeframe);
+		SwingUtilities.invokeLater(() -> {
+			this.graphUI = new MonteCarloGraphUI(initialSymbols, dataSourceManager, titleName, topList,
+					useCustomTimeRange, customStartTime, customEndTime, customTimeframe, monteCarloConfig, priceDataMap,
+					selectedColumns, graphSettings);
 
-		// Initialize the UI first
-		graphUI.initialize();
+			// Initialize the UI first
+			graphUI.initialize();
 
-		// THEN set the primary symbols (after UI is created)
-		graphUI.setPrimarySymbols(primarySymbols);
+			// THEN set the primary symbols (after UI is created)
+			graphUI.setPrimarySymbols(primarySymbols);
 
-		// Pass the custom settings to UI
-		graphUI.setSymbolThicknesses(symbolThickness);
-		graphUI.setSymbolColors(symbolColors);
+			// Pass the custom settings to UI
+			graphUI.setSymbolThicknesses(symbolThickness);
+			graphUI.setSymbolColors(symbolColors);
+		});
 	}
 
 	public void toggleTopList() {
@@ -379,50 +404,73 @@ public class MonteCarloGraphController {
 			graphUI.setCurrentTimeMode(timeRange);
 		}
 	}
-	
+
 	/**
 	 * Update custom time range and refresh chart immediately
 	 */
 	public void updateCustomTimeRange(ZonedDateTime start, ZonedDateTime end, String timeframe) {
-	    if (graphUI != null) {
-	        graphUI.updateCustomTimeRange(start, end, timeframe);
-	    } else {
-	        System.out.println("UI not initialized, cannot update time range");
-	    }
+		if (graphUI != null) {
+			graphUI.updateCustomTimeRange(start, end, timeframe);
+		} else {
+			System.out.println("UI not initialized, cannot update time range");
+		}
 	}
 
 	/**
-	 * Update current time mode with specific time range and refresh chart immediately
+	 * Update current time mode with specific time range and refresh chart
+	 * immediately
 	 */
 	public void updateCurrentTimeMode(String timeRange) {
-	    if (graphUI != null) {
-	        graphUI.updateCurrentTimeMode(timeRange);
-	    } else {
-	        System.out.println("UI not initialized, cannot update time range");
-	    }
+		if (graphUI != null) {
+			graphUI.updateCurrentTimeMode(timeRange);
+		} else {
+			System.out.println("UI not initialized, cannot update time range");
+		}
 	}
 
 	/**
 	 * Force refresh the chart with current time range settings
 	 */
 	public void forceRefreshChart() {
-	    if (graphUI != null) {
-	        graphUI.forceRefreshChart();
-	    } else {
-	        System.out.println("UI not initialized, cannot refresh chart");
-	    }
+		if (graphUI != null) {
+			graphUI.forceRefreshChart();
+		} else {
+			System.out.println("UI not initialized, cannot refresh chart");
+		}
 	}
 
 	/**
 	 * Get current time range settings
 	 */
 	public Map<String, Object> getCurrentTimeRangeSettings() {
-	    Map<String, Object> settings = new HashMap<>();
-	    if (graphUI != null) {
-	        settings.put("isCustomTimeRange", graphUI.isCustomTimeRangeEnabled());
-	        // You can add more settings here if needed
-	    }
-	    return settings;
+		Map<String, Object> settings = new HashMap<>();
+		if (graphUI != null) {
+			settings.put("isCustomTimeRange", graphUI.isCustomTimeRangeEnabled());
+			// You can add more settings here if needed
+		}
+		return settings;
+	}
+
+	public Map<String, Object> getMonteCarloConfig() {
+		return monteCarloConfig;
+	}
+
+	public void setMonteCarloConfig(Map<String, Object> monteCarloConfig) {
+		this.monteCarloConfig = monteCarloConfig;
+		if (graphUI != null) {
+			this.graphUI.setMonteCarloConfig(monteCarloConfig);
+		}
+	}
+
+	public Map<String, PriceData> getPriceDataMap() {
+		return priceDataMap;
+	}
+
+	public void setPriceDataMap(Map<String, PriceData> priceDataMap) {
+		this.priceDataMap = priceDataMap;
+		if (graphUI != null) {
+			this.graphUI.setPriceDataMap(priceDataMap);
+		}
 	}
 
 }

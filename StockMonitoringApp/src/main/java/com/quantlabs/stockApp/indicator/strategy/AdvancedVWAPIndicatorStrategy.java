@@ -41,32 +41,57 @@ public class AdvancedVWAPIndicatorStrategy extends AbstractIndicatorStrategy{
 	}
 
 	@Override
-	public void calculate(BarSeries series, AnalysisResult result, int endIndex) {
-		// TODO Auto-generated method stub
-		AdvancedVWAPStrategy.AdvancedVWAPIndicator vwapIndicator = new AdvancedVWAPStrategy.AdvancedVWAPIndicator(series);
-		if (series.getEndIndex() >= 0) {
-	        Num vwapValue = vwapIndicator.getValue(series.getEndIndex());
-	        Num vwapClosePrice = series.getLastBar().getClosePrice();
-	        String vwapStatus = vwapClosePrice.isGreaterThan(vwapValue) ? "Uptrend" : "Downtrend";
-	        result.setVwapStatus(vwapStatus);
-	        //previousStatuses.put("VWAP", vwapStatus);
-		}
-		
-		calculateZscore(series,result,endIndex);
-	}
+    public void calculate(BarSeries series, AnalysisResult result, int endIndex) {
+        if (series == null || series.getBarCount() == 0) return;
+        
+        AdvancedVWAPStrategy.AdvancedVWAPIndicator vwapIndicator = new AdvancedVWAPStrategy.AdvancedVWAPIndicator(series);
+        
+        if (endIndex >= 0 && endIndex < series.getBarCount()) {
+            Num vwapValue = vwapIndicator.getValue(endIndex);
+            Num currentPrice = series.getBar(endIndex).getClosePrice();
+            
+            // Set VWAP value
+            result.setVwap(vwapValue.doubleValue());
+            
+            // Determine trend based on price vs VWAP
+            String vwapStatus = currentPrice.isGreaterThan(vwapValue) ? "Uptrend" : "Downtrend";
+            result.setVwapStatus(vwapStatus);
+        }
+        
+        // Calculate Z-Score
+        calculateZscore(series, result, endIndex);
+    }
 	
 	// In AdvancedVWAPIndicatorStrategy.java - Add this method
 	@Override
 	public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
-	    String status = result.getVwapStatus();
-	    double zscore = 0.0;
-	    
-	    // If status is "Uptrend", set 100 points
-	    if (status != null && status.toLowerCase().contains("uptrend")) {
-	        zscore = MAX_ZSCORE; // 100 points
+	    if (series == null || endIndex < 0 || endIndex >= series.getBarCount()) {
+	        return 0.0;
 	    }
 	    
-	    // Set it on the result
+	    AdvancedVWAPStrategy.AdvancedVWAPIndicator vwapIndicator = new AdvancedVWAPStrategy.AdvancedVWAPIndicator(series);
+	    Num vwapValue = vwapIndicator.getValue(endIndex);
+	    Num currentPrice = series.getBar(endIndex).getClosePrice();
+	    
+	    double zscore = 0.0;
+	    
+	    // 1. Basic trend direction - 60 points
+	    if (currentPrice.isGreaterThan(vwapValue)) {
+	        zscore += 60; // Above VWAP - bullish
+	    } else {
+	        zscore += 20; // Below VWAP - bearish
+	    }
+	    
+	    // 2. Deviation strength - 40 points
+	    double deviationPercent = ((currentPrice.doubleValue() - vwapValue.doubleValue()) / vwapValue.doubleValue()) * 100.0;
+	    double deviationScore = Math.min(40, Math.abs(deviationPercent) * 4);
+	    
+	    if (currentPrice.isGreaterThan(vwapValue)) {
+	        zscore += deviationScore; // Positive deviation adds to bullish
+	    } else {
+	        zscore += (40 - deviationScore); // Negative deviation reduces bearish
+	    }
+	    
 	    result.setVwapZscore(zscore);
 	    return zscore;
 	}

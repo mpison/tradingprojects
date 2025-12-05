@@ -426,6 +426,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
                     // If targetValue (which is MA1 - MA2) is less than the absolute MA value difference, set 100 points
                     if (Math.abs(targetValue) <= maValueDifference) {
                         zscore = MAX_ZSCORE; // 100 points
+                        zscore = normalizeScore(zscore, MAX_ZSCORE);
                     }
                 }
                 
