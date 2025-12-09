@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -346,8 +347,8 @@ public class IndicatorsManagementApp extends JFrame {
 	}
 
 	private void loadAllData() {
-		loadStrategies();
-		loadCustomIndicators();
+		//loadStrategies();
+		//loadCustomIndicators();
 		loadWatchlists();
 		logToUI("📂 All data loaded successfully");
 	}
@@ -384,7 +385,7 @@ public class IndicatorsManagementApp extends JFrame {
 		}
 	}
 
-	private void saveCustomIndicators() {
+	/*private void saveCustomIndicators() {
 		try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(CUSTOM_INDICATORS_FILE))) {
 			oos.writeObject(new ArrayList<>(globalCustomIndicators));
 			logToUI("💾 Custom indicators saved: " + globalCustomIndicators.size());
@@ -408,7 +409,7 @@ public class IndicatorsManagementApp extends JFrame {
 		} else {
 			logToUI("ℹ️ No saved custom indicators found - starting with empty list");
 		}
-	}
+	}*/
 
 	private void saveWatchlists() {
 		try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(WATCHLISTS_FILE))) {
@@ -464,7 +465,7 @@ public class IndicatorsManagementApp extends JFrame {
 		config2.setAlarmEnabled(false);
 
 		config2.addTimeframeWithIndicators("1D",
-				new HashSet<>(Arrays.asList("HighestCloseOpen", "VWAP", "Volume20MA")));
+				new HashSet<>(Arrays.asList("HIGHESTCLOSEOPEN", "VWAP", "Volume20MA")));
 		config2.addTimeframeWithIndicators("4H", new HashSet<>(Arrays.asList("PSAR(0.05)", "RSI")));
 
 		strategyListModel.addElement(config2);
@@ -812,7 +813,7 @@ public class IndicatorsManagementApp extends JFrame {
 				globalCustomIndicators.addAll(indicators);
 			}
 
-			saveCustomIndicators();
+			//saveCustomIndicators();
 			logToUI("✅ Global custom indicators updated: " + globalCustomIndicators.size() + " indicators available");
 			showStrategyDetails();
 		}
@@ -1252,8 +1253,41 @@ public class IndicatorsManagementApp extends JFrame {
 	public void setGlobalCustomIndicators(Set<CustomIndicator> indicators) {
 		globalCustomIndicators.clear();
 		globalCustomIndicators.addAll(indicators);
-		saveCustomIndicators();
+		//saveCustomIndicators();
 	}
+	
+	/**
+	 * Get custom indicators by name or display name
+	 * Improved version with null safety and better readability
+	 */
+	public List<CustomIndicator> getGlobalCustomIndicatorByName(String indicatorName) {
+	    // Early return for invalid input
+	    if (indicatorName == null || indicatorName.trim().isEmpty()) {
+	        return new ArrayList<>(); // Return empty mutable list
+	    }
+	    
+	    final String searchTerm = removeCustomPrefix(indicatorName.trim());
+	    
+	    return globalCustomIndicators.stream()
+	        .filter(Objects::nonNull) // Filter out null indicators
+	        .filter(indicator -> 
+	            searchTerm.equals(indicator.getName()) ||  // Exact name match
+	            searchTerm.equals(indicator.getDisplayName()) || // Exact display name match
+	            // Optional: Add partial matching
+	            indicator.getName().toLowerCase().contains(searchTerm.toLowerCase()) ||
+	            indicator.getDisplayName().toLowerCase().contains(searchTerm.toLowerCase())
+	        )
+	        .collect(Collectors.toList());
+	}
+	
+	public static String removeCustomPrefix(String str) {
+	    if (str == null) return null;
+	    if (str.startsWith("CUSTOM_")) {
+	        return str.substring("CUSTOM_".length());
+	    }
+	    return str;
+	}
+
 
 	/**
 	 * Sets the global watchlists and clears the existing ones

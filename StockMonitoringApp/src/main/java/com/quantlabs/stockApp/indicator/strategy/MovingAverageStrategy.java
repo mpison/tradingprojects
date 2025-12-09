@@ -31,7 +31,7 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
     
     @Override
     public String getName() {
-        return name;
+        return type +"(" + period + ")";
     }
     
     @Override
@@ -74,8 +74,22 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
         updateTrendStatus(result, finalTrend);
         
         // Store Z-score trend for future reference
-        result.setCustomIndicatorValue(getName() + "_Zscore_Trend", trend);
-        result.setCustomIndicatorValue(getName() + "_Zscore", String.valueOf(zscore));
+        result.setCustomIndicatorValue(getName() + "_MA", String.valueOf(maValue));
+        result.setCustomIndicatorValue(getName() + "_MATrend", finalTrend);
+        result.setCustomIndicatorValue(getName() + "_MAZscore", String.valueOf(zscore));
+        
+    }
+    
+    public String getMAValue(AnalysisResult analysisResult) {
+    	return analysisResult.getCustomIndicatorValue(getName() + "_MA");
+    }
+    
+    public String getMATrend(AnalysisResult analysisResult) {
+    	return analysisResult.getCustomIndicatorValue(getName() + "_MATrend");
+    }
+    
+    public String getZscore(AnalysisResult analysisResult) {
+    	return analysisResult.getCustomIndicatorValue(getName() + "_MAZscore");
     }
     
     @Override
@@ -144,35 +158,34 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
         }
         
         double normalizedZscore = normalizeScore(zscore, maxPossibleScore);
-        result.setCustomIndicatorValue(getName() + "_Zscore", String.valueOf(normalizedZscore));
+        result.setCustomIndicatorValue(getName() + "_MAZscore", String.valueOf(normalizedZscore));
         return normalizedZscore;
     }
     
     @Override
     protected void updateTrendStatus(AnalysisResult result, String currentTrend) {
         // Store trend status in a custom field for moving average
-        result.setCustomIndicatorValue(getName() + "_Trend", currentTrend);
+        result.setCustomIndicatorValue(getName() + "_MATrend", currentTrend);
         
         // Also update the main trend field for common periods
-        if (period == 9) {
-            result.setSmaTrend(currentTrend);
-        } else if (period == 20) {
-            // You might want to add a specific field for SMA20 trend
-        } else if (period == 200) {
-            // You might want to add a specific field for SMA200 trend
-        }
+		/*
+		 * if (period == 9) { result.setSmaTrend(currentTrend); } else if (period == 20)
+		 * { // You might want to add a specific field for SMA20 trend result.setSM }
+		 * else if (period == 200) { // You might want to add a specific field for
+		 * SMA200 trend }
+		 */
     }
     
     @Override
     public String determineTrend(AnalysisResult result) {
         // Try to get Z-score based trend first
-        String zscoreTrend = result.getCustomIndicatorValue(getName() + "_Zscore_Trend");
+        String zscoreTrend = result.getCustomIndicatorValue(getName() + "_MAZscore");
         if (zscoreTrend != null && !zscoreTrend.equals("N/A")) {
             return zscoreTrend;
         }
         
         // Fallback to custom trend field
-        String customTrend = result.getCustomIndicatorValue(getName() + "_Trend");
+        String customTrend = result.getCustomIndicatorValue(getName() + "_MATrend");
         if (customTrend != null && !customTrend.equals("N/A")) {
             return customTrend;
         }
@@ -266,13 +279,16 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
             case 20:
                 result.setSma20(value);
                 break;
-            case 50:
-                // Store in custom field for SMA50
-                result.setCustomIndicatorValue("SMA50", String.valueOf(value));
-                break;
+            
             case 200:
                 result.setSma200(value);
                 break;
+            case 50:
+            default:	
+                // Store in custom field for SMA50
+                result.setCustomIndicatorValue(getName(), String.valueOf(value));
+                break;    
+                
         }
     }
     
@@ -290,9 +306,11 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
         // Fallback to standard fields
         switch (period) {
             case 9: return result.getSma9();
-            case 20: return result.getSma20();
+            case 20: return result.getSma20();            
+            case 200: return result.getSma200();
             case 50: 
-                String sma50Value = result.getCustomIndicatorValue("SMA50");
+            default:	
+                String sma50Value = result.getCustomIndicatorValue(getName());
                 if (sma50Value != null && !sma50Value.equals("N/A")) {
                     try {
                         return Double.parseDouble(sma50Value);
@@ -300,9 +318,7 @@ public class MovingAverageStrategy extends AbstractIndicatorStrategy {
                         // Continue
                     }
                 }
-                return Double.NaN;
-            case 200: return result.getSma200();
-            default: return Double.NaN;
+                return Double.NaN;                	
         }
     }
     

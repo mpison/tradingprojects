@@ -110,7 +110,7 @@ public abstract class AbstractIndicatorStrategy {
 
 		Map<String, String> previousStatuses = new HashMap<>();
 
-		if (getName() != "HighestCloseOpen" || getName() != "MovingAverageTargetValue" || !getName().contains("Breakout")) {
+		if (getName().toUpperCase() != "HIGHESTCLOSEOPEN" || getName() != "MOVINGAVERAGETARGETVALUE" || !getName().contains("Breakout")) {
 			for (int i = adjustedEndIndex; i <= adjustedStartIndex; i++) {
 
 				

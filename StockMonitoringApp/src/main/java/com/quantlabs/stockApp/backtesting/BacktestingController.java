@@ -81,7 +81,7 @@ public class BacktestingController {
             case "VWAP":
                 return new AdvancedVWAPIndicatorStrategy(logger);
             case "VOLUME_MA":
-                return new VolumeStrategyMA(logger);
+                return new VolumeStrategyMA(20, logger);
             case "MOVING_AVERAGE":
                 Map<String, Object> params = config.getParameters();
                 int period = (int) params.getOrDefault("period", 20);

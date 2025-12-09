@@ -15,6 +15,7 @@ import org.ta4j.core.BarSeries;
 import com.quantlabs.stockApp.data.StockDataProvider;
 import com.quantlabs.stockApp.indicator.management.CustomIndicator;
 import com.quantlabs.stockApp.indicator.management.CustomIndicatorCalculator;
+import com.quantlabs.stockApp.indicator.management.IndicatorsManagementApp;
 import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
 import com.quantlabs.stockApp.model.PriceData;
 import com.quantlabs.stockApp.reports.AnalysisResult;
@@ -25,6 +26,7 @@ public class AnalysisOrchestrator {
 	private static StockDataProvider dataProvider;
 	private ZonedDateTime startTime;
 	private ZonedDateTime endTime;
+	private IndicatorsManagementApp indicatorsManagementApp;
 
 	public AnalysisOrchestrator(TechnicalAnalysisService technicalAnalysisService, StockDataProvider dataProvider) {
 		this.technicalAnalysisService = technicalAnalysisService;
@@ -104,7 +106,7 @@ public class AnalysisOrchestrator {
 	}
 	
 	
-	public static LinkedHashMap<String, AnalysisResult> analyzeSymbolReComputeCustomIndicator(String symbol, Set<String> timeframes,
+	public LinkedHashMap<String, AnalysisResult> analyzeSymbolReComputeCustomIndicator(String symbol, Set<String> timeframes,
 			Set<String> indicatorsToCalculate, boolean uptrendFilterEnabled,
 			Map<String, JComboBox<String>> indicatorTimeRangeCombos,
 			Map<String, JComboBox<String>> indicatorSessionCombos, Map<String, JTextField> indicatorIndexCounterFields,
@@ -160,7 +162,7 @@ public class AnalysisOrchestrator {
 					// Perform technical analysis with both standard and custom indicators
 					result = TechnicalAnalysisService.performTechnicalAnalysisForCustomIndicators(series,
 							indicatorsToCalculate, timeframe, symbol, timeRange, session, indexCounter,
-							timeframeIndexRanges, currentDataSource, timeframeCustomIndicators, result, priceData);
+							timeframeIndexRanges, currentDataSource, timeframeCustomIndicators, result, priceData, this.indicatorsManagementApp);
 					
 					result.setBarSeries(series);
 
@@ -337,4 +339,8 @@ public class AnalysisOrchestrator {
         this.startTime = startTime;
         this.endTime = endTime;
     }
+
+	public void setIndicatorsManagementApp(IndicatorsManagementApp indicatorsManagementApp) {
+		this.indicatorsManagementApp = indicatorsManagementApp;
+	}
 }

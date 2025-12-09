@@ -266,7 +266,8 @@ public class StrategyCheckerHelper {
 		try {
 			switch (indicator) {
 			case "Trend":
-				return result.getSmaTrend() != null ? result.getSmaTrend() : "Unknown";
+			case "TREND":
+				return result.getTrend() != null ? result.getTrend() : "Unknown";
 			case "RSI":
 				return result.getRsiTrend() != null ? result.getRsiTrend() : "Unknown";
 			case "MACD":
@@ -278,13 +279,17 @@ public class StrategyCheckerHelper {
 			case "PSAR(0.05)":
 				return result.getPsar005Trend() != null ? result.getPsar005Trend() : "Unknown";
 			case "HeikenAshi":
+			case "HEIKENASHI":	
 				return result.getHeikenAshiTrend() != null ? result.getHeikenAshiTrend() : "Unknown";
 			case "VWAP":
 				return result.getVwapStatus() != null ? result.getVwapStatus() : "Unknown";
-			case "HighestCloseOpen":
+			case "HIGHESTCLOSEOPEN":
 				return result.getHighestCloseOpenStatus() != null ? result.getHighestCloseOpenStatus() : "Unknown";
+			case "VOLUMEMA(20)":
+				return result.getVolume20Trend() != null ? result.getVolume20Trend() : "Unknown";	
 			case "Action":
 				// You might need to calculate this based on other indicators
+				//TODO: GENERATE filter for ACTION
 				return "Unknown";
 			default:
 				return "Unknown";
@@ -322,13 +327,13 @@ public class StrategyCheckerHelper {
 	/**
 	 * Check if a status string is considered bullish
 	 */
-	public boolean isBullishStatus(String status) {
-		if (status == null || status.isEmpty()) {
+	public boolean isBullishStatus(String status3) {
+		if (status3 == null || status3.isEmpty()) {
 			return false;
 		}
 
-		String cleanStatus = cleanStatusString(status);
-		return BULLISH_STATUSES.contains(cleanStatus) || status.contains("Bullish") || cleanStatus.contains("Bullish");
+		String cleanStatus = cleanStatusString(status3);
+		return BULLISH_STATUSES.contains(cleanStatus) || status3.contains("Bullish") || cleanStatus.contains("Bullish") || cleanStatus.toUpperCase().contains("UPTREND");
 	}
 
 	/**

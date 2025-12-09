@@ -16,6 +16,7 @@ public class AnalysisResult {
     private String smaTrend;
     private double ema20;
     private String ema20Trend;
+    private String trend;
         
     private double rsi;
     private String rsiTrend;
@@ -52,8 +53,10 @@ public class AnalysisResult {
     // Advanced indicators
     private double highestCloseOpen;
     private String highestCloseOpenStatus;
+    
     private Double movingAverageTargetValue;
     private Double movingAverageTargetValuePercentile;
+    private String movingAverageTargetValueStatus;
     
     // Z-score fields (0-100 scale)
     private double macdZscore;
@@ -102,7 +105,13 @@ public class AnalysisResult {
     public double getSma200() { return sma200; }
     public void setSma200(double sma200) { this.sma200 = sma200; }
     
-    public double getRsi() { return rsi; }
+    public String getTrend() {
+		return trend;
+	}
+	public void setTrend(String trend) {
+		this.trend = trend;
+	}
+	public double getRsi() { return rsi; }
     public void setRsi(double rsi) { this.rsi = rsi; }
     
     public double getMacd() { return macd; }
@@ -366,7 +375,13 @@ public class AnalysisResult {
 	public long getTimestamp() { return timestamp; }
 	
 	public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
-	
+		
+	public String getMovingAverageTargetValueStatus() {
+		return movingAverageTargetValueStatus;
+	}
+	public void setMovingAverageTargetValueStatus(String movingAverageTargetValueStatus) {
+		this.movingAverageTargetValueStatus = movingAverageTargetValueStatus;
+	}
 	public double getOverallZscore() {
 	    int count = 0;
 	    double total = 0.0;

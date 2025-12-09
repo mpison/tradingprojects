@@ -33,7 +33,9 @@ public class HeikenAshiStrategy extends AbstractIndicatorStrategy {
         String trend = determineTrend(result);
         result.setHeikenAshiTrend(trend);
         
-        calculateZscore(series,result,endIndex);
+        double zscore = calculateZscore(series,result,endIndex);
+        
+        result.setHeikenAshiZscore(zscore);
     }   
 
 	@Override

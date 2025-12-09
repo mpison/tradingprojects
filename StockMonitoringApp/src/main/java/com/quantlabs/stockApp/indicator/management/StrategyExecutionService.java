@@ -46,9 +46,9 @@ public class StrategyExecutionService {
         strategyMap.put("PSAR(0.05)", new PSARStrategy(0.05, 0.2, "standard", logger));
         strategyMap.put("HeikenAshi", new HeikenAshiStrategy(logger));
         strategyMap.put("RSI", new RSIStrategy(logger));
-        strategyMap.put("HighestCloseOpen", new HighestCloseOpenStrategy(logger));
-        strategyMap.put("Volume20MA", new VolumeStrategyMA(logger));
-        strategyMap.put("Trend", new TrendStrategy(logger));
+        strategyMap.put("HIGHESTCLOSEOPEN", new HighestCloseOpenStrategy(logger));
+        strategyMap.put("VOLUMEMA(20)", new VolumeStrategyMA(20, logger));
+        strategyMap.put("TREND", new TrendStrategy(logger));
     }
     
     public void importStrategies(Object strategiesObj) {
@@ -130,7 +130,7 @@ public class StrategyExecutionService {
                     return new HighestCloseOpenStrategy(logger);
                     
                 case "VOLUME20MA":
-                    return new VolumeStrategyMA(logger);
+                    return new VolumeStrategyMA(20, logger);
                     
                 case "TREND":
                     return new TrendStrategy(logger);
@@ -177,13 +177,15 @@ public class StrategyExecutionService {
                     return new HeikenAshiStrategy(logger);
                     
                 case "RSI":
-                    return new RSIStrategy(logger);
+                	int period = getIntFromMap(strategyMapData, "period", 14);
+                    return new RSIStrategy(period, logger);
                     
                 case "HIGHESTCLOSEOPEN":
                     return new HighestCloseOpenStrategy(logger);
                     
                 case "VOLUME20MA":
-                    return new VolumeStrategyMA(logger);
+                	period = getIntFromMap(strategyMapData, "period", 20);
+                    return new VolumeStrategyMA(period, logger);
                     
                 case "TREND":
                     return new TrendStrategy(logger);

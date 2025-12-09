@@ -45,20 +45,27 @@ public class PSARStrategy extends AbstractIndicatorStrategy {
 			Num currentClose = series.getBar(endIndex).getClosePrice();
 			double psarValue = psar.getValue(endIndex).doubleValue();
 			String trend = psarValue < currentClose.doubleValue() ? "Uptrend" : "Downtrend";
+			
+			// Calculate Z-score after setting PSAR values
+			double zscore =	calculateZscore(series, result, endIndex);
+			
+			String name = getName();
 
 			if ("PSAR(0.01)".equals(getName())) {
 				result.setPsar001(psarValue);
 				result.setPsar001Trend(trend);
+				result.setPsar001Zscore(zscore);
 			} else if ("PSAR(0.05)".equals(getName())) {
 				result.setPsar005(psarValue);
 				result.setPsar005Trend(trend);
-			} else {
-				result.setPsar(psarValue);
-				result.setPsarTrend(trend);
+				result.setPsar005Zscore(zscore);
+			} else {				
+				result.setCustomIndicatorValue(name + "_PSAR", String.valueOf(psarValue));
+	        	result.setCustomIndicatorValue(name + "_PSARTrend", String.valueOf(trend));
+	        	result.setCustomIndicatorValue(name + "_PSARZscore", String.valueOf(zscore));
 			}
 
-			// Calculate Z-score after setting PSAR values
-			calculateZscore(series, result, endIndex);
+			
 
 		} catch (Exception e) {
 			if (logger != null) {
@@ -74,7 +81,8 @@ public class PSARStrategy extends AbstractIndicatorStrategy {
 		} else if ("PSAR(0.05)".equals(getName())) {
 			result.setPsar005Trend(currentTrend);
 		} else {
-			result.setPsarTrend(currentTrend);
+			//result.setPsarTrend(currentTrend);
+			result.setCustomIndicatorValue(getName() + "_PSARTrend", String.valueOf(currentTrend));
 		}
 	}
 
@@ -90,10 +98,49 @@ public class PSARStrategy extends AbstractIndicatorStrategy {
 			result.setPsar005Trend(returnVal);
 		} else {
 			returnVal = determinePsarStatus(result.getPrice(), result.getPsar());
-			result.setPsarTrend(returnVal);
+			
+			result.setCustomIndicatorValue(getName() + "_PSARTrend", String.valueOf(returnVal));
+			
 		}
 
 		return returnVal;
+	}
+	
+	public double getPsarValue(AnalysisResult analysisResult) {
+		double psarValue;
+        
+        String psarName = getName();
+        
+        //String trend;
+        
+		if (step == 0.01) {
+            psarValue = analysisResult.getPsar001();
+            //trend = analysisResult.getPsar001Trend();
+        } else if(step== 0.05){
+            psarValue = analysisResult.getPsar005();
+            //trend = analysisResult.getPsar005Trend();
+        } else {
+            psarValue = Double.valueOf(analysisResult.getCustomIndicatorValue(psarName +"_PSAR"));
+            //trend = String.valueOf(analysisResult.getCustomIndicatorValue(psarName +"_PSARTrend"));            
+        }
+		return psarValue;
+	}
+
+	public String getPsarTrend(AnalysisResult analysisResult) {		
+    
+	    String psarName = getName();
+	    
+	    String trend;
+		if (step == 0.01) {
+            //psarValue = analysisResult.getPsar001();
+            trend = analysisResult.getPsar001Trend();
+        } else if(step== 0.05){
+            trend = analysisResult.getPsar005Trend();
+        } else {
+           
+            trend = String.valueOf(analysisResult.getCustomIndicatorValue(psarName +"_PSARTrend"));            
+        }
+		return trend;
 	}
 
 	private String determinePsarStatus(double close, double psarValue) {
@@ -277,4 +324,6 @@ public class PSARStrategy extends AbstractIndicatorStrategy {
 	public String getVariant() {
 		return variant;
 	}
+
+	
 }

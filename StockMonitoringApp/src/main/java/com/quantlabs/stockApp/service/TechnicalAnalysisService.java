@@ -11,6 +11,7 @@ import org.ta4j.core.BarSeries;
 
 import com.quantlabs.stockApp.data.ConsoleLogger;
 import com.quantlabs.stockApp.indicator.management.CustomIndicator;
+import com.quantlabs.stockApp.indicator.management.IndicatorsManagementApp;
 import com.quantlabs.stockApp.indicator.management.StrategyConfig;
 import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
 import com.quantlabs.stockApp.indicator.strategy.AdvancedVWAPIndicatorStrategy;
@@ -41,9 +42,9 @@ public class TechnicalAnalysisService {
         this.logger = logger;
     }
     
-    private static final String[] allIndicators = { "Trend", "RSI", "MACD", "MACD Breakout", "MACD(5,8,9)", "HeikenAshi",
-            "MACD(5,8,9) Breakout", "PSAR(0.01)", "PSAR(0.01) Breakout", "PSAR(0.05)", "PSAR(0.05) Breakout",
-            "Breakout Count", "Action", "MovingAverageTargetValue", "HighestCloseOpen", "Volume", "Volume20MA", "VWAP" };
+    //private static final String[] allIndicators = { "Trend", "RSI", "MACD", "MACD Breakout", "MACD(5,8,9)", "HeikenAshi",
+     //       "MACD(5,8,9) Breakout", "PSAR(0.01)", "PSAR(0.01) Breakout", "PSAR(0.05)", "PSAR(0.05) Breakout",
+      //      "Breakout Count", "Action", "MovingAverageTargetValue", "HighestCloseOpen", "Volume", "Volume20MA", "VWAP" };
     
     private void initializeDefaultStrategies() {
         // Register default strategies
@@ -67,7 +68,7 @@ public class TechnicalAnalysisService {
         
         registerStrategy(new AdvancedVWAPIndicatorStrategy(logger));
         registerStrategy(new VolumeStrategy(logger));
-        registerStrategy(new VolumeStrategyMA(logger));
+        registerStrategy(new VolumeStrategyMA(20, logger));
         
         // Register common moving averages for easy access
         registerStrategy(new MovingAverageStrategy(9, "SMA", "SMA(9)", logger));
@@ -146,7 +147,7 @@ public class TechnicalAnalysisService {
                     if(!notListed.contains(cType.toUpperCase())) {
                     
 	                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
-	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, null);
+	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, null, null);
 	                    
 	                    // Store the custom indicator result using the dedicated method
 	                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
@@ -169,7 +170,7 @@ public class TechnicalAnalysisService {
     public static AnalysisResult performTechnicalAnalysisForCustomIndicators(BarSeries series, Set<String> indicatorsToCalculate, 
             String timeframe, String symbol, String timeRange, String session, 
             int indexCounter, Map<String, Map<String, Integer>> timeframeIndexRanges, String currentDataSource,
-            Set<CustomIndicator> customIndicators, AnalysisResult result, PriceData priceData) {
+            Set<CustomIndicator> customIndicators, AnalysisResult result, PriceData priceData, IndicatorsManagementApp indicatorsManagementApp) {
         
         //AnalysisResult result = new AnalysisResult();
         if (series.getBarCount() == 0) return result;
@@ -225,7 +226,7 @@ public class TechnicalAnalysisService {
                     
                     if(listed.contains(cType.toUpperCase())) {
 	                    String customIndicatorResult = calculateCustomIndicatorValue(customIndicator, series, 
-	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, priceData);
+	                            startRangeIndex, endRangeIndex, timeframe, symbol, result, priceData, indicatorsManagementApp);
 	                    
 	                    // Store the custom indicator result using the dedicated method
 	                    result.setCustomIndicatorValue(customIndicatorName, customIndicatorResult);
@@ -247,9 +248,10 @@ public class TechnicalAnalysisService {
      * Calculate value for a custom indicator
      * @param result 
      * @param priceData 
+     * @param indicatorsManagementApp 
      */
     private static String calculateCustomIndicatorValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, String timeframe, String symbol, AnalysisResult result, PriceData priceData) {
+            int startIndex, int endIndex, String timeframe, String symbol, AnalysisResult result, PriceData priceData, IndicatorsManagementApp indicatorsManagementApp) {
         
         if (customIndicator == null || series == null || series.getBarCount() == 0) {
             return "N/A";
@@ -261,38 +263,38 @@ public class TechnicalAnalysisService {
         try {
             switch (type) {
                 case "MACD":
-                    return calculateMACDValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomMACDValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "RSI":
-                    return calculateRSIValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomRSIValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "PSAR":
-                    return calculatePSARValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomPSARValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "TREND":
-                    return calculateTrendValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomTrendValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "VOLUMEMA":
-                    return calculateVolumeMAValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomVolumeMAValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "MOVINGAVERAGE":
-                    return calculateMovingAverageValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomMovingAverageValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "HIGHESTCLOSEOPEN":
-                    return calculateHighestCloseOpenValue(customIndicator, series, startIndex, endIndex, parameters, timeframe, symbol);
+                    return calculateCustomHighestCloseOpenValue(customIndicator, series, startIndex, endIndex, parameters, timeframe, symbol, result);
                     
                 case "VWAP":
-                    return calculateVWAPValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomVWAPValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "HEIKENASHI":
-                    return calculateHeikenAshiValue(customIndicator, series, startIndex, endIndex, parameters);
+                    return calculateCustomHeikenAshiValue(customIndicator, series, startIndex, endIndex, parameters, result);
                     
                 case "MOVINGAVERAGETARGETVALUE":
-                    return calculateMovingAverageTargetValue(customIndicator, series, startIndex, endIndex, parameters, timeframe, symbol, result, priceData);
+                    return calculateCustomMovingAverageTargetValue(customIndicator, series, startIndex, endIndex, parameters, timeframe, symbol, result, priceData);
                 
                 case "MULTITIMEFRAMEZSCORE":
-                    return calculateMultiTimeframeZScore(customIndicator, series, startIndex, endIndex, 
-                                                         parameters, timeframe, symbol, result, priceData);    
+                    return calculateCustomMultiTimeframeZScore(customIndicator, series, startIndex, endIndex, 
+                                                         parameters, timeframe, symbol, result, priceData, indicatorsManagementApp);    
                     
                 default:
                     return "Unknown indicator type: " + type;
@@ -302,9 +304,9 @@ public class TechnicalAnalysisService {
         }
     }
     
-    private static String calculateMultiTimeframeZScore(CustomIndicator customIndicator, BarSeries series,
+    private static String calculateCustomMultiTimeframeZScore(CustomIndicator customIndicator, BarSeries series,
             int startIndex, int endIndex, Map<String, Object> parameters, 
-            String timeframe, String symbol, AnalysisResult result, PriceData priceData) {
+            String timeframe, String symbol, AnalysisResult result, PriceData priceData, IndicatorsManagementApp indicatorsManagementApp) {
         
         try {
             // Get selected timeframes from parameters
@@ -360,8 +362,10 @@ public class TechnicalAnalysisService {
             
             // Create and execute the MultiTimeframeZScoreStrategy
             MultiTimeframeZScoreStrategy strategy = new MultiTimeframeZScoreStrategy(
-                strategyConfig, priceData, null // logger
+                strategyConfig, priceData, indicatorsManagementApp, null // logger
             );
+            
+            strategy.setIndicatorsManagementApp(indicatorsManagementApp);
             
             // Calculate Z-Score
             double zscore = strategy.calculateZscore(series, result, series.getEndIndex());
@@ -370,7 +374,9 @@ public class TechnicalAnalysisService {
             result.addCustomValue("MultiTimeframeZScore_" + customIndicator.getName(), zscore);
             
             // Return formatted result
-            return String.format("Z-Score: %.1f/100 (Timeframes: %s)", zscore, String.join(", ", selectedTimeframes));
+            //return String.format("Z-Score: %.1f/100 (Timeframes: %s)", zscore, String.join(", ", selectedTimeframes));
+            
+            return String.format("Z-Score: %.1f/100 (Timeframes: %s)", zscore, strategy.getAdditionalNotes());
             
         } catch (Exception e) {
             return "Error: " + e.getMessage();
@@ -378,8 +384,8 @@ public class TechnicalAnalysisService {
     }
 
     // Custom indicator calculation methods
-    private static String calculateMACDValue(CustomIndicator customIndicator, BarSeries series, 
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomMACDValue(CustomIndicator customIndicator, BarSeries series, 
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult analysisResult) {
         
         int fast = getIntParameter(parameters, "fast", 12);
         int slow = getIntParameter(parameters, "slow", 26);
@@ -387,120 +393,206 @@ public class TechnicalAnalysisService {
         
         // Use existing MACDStrategy to calculate
         MACDStrategy macdStrategy = new MACDStrategy(fast, slow, signal, customIndicator.getName(), null);
-        AnalysisResult tempResult = new AnalysisResult();
-        macdStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        //AnalysisResult tempResult = new AnalysisResult();
+        macdStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
         
+        /*
         String macdName = macdStrategy.getName();
         
         // Get MACD values from the result
-        if(!"MACD(5,8,9)".equals(macdName)) {
-	        double macdValue = tempResult.getMacd();
-	        double signalValue = tempResult.getMacdSignal();
-	        String status = tempResult.getMacdStatus();
+        if("MACD(5,8,9)".equals(macdName)) {
+        	double macdValue = analysisResult.getMacd359();
+	        double signalValue = analysisResult.getMacdSignal359();
+	        String status = analysisResult.getMacd359Status();
 	        
 	        return String.format("MACD: %.4f, Signal: %.4f, Status: %s", macdValue, signalValue, status);
-        }else {
-        	double macdValue = tempResult.getMacd359();
-	        double signalValue = tempResult.getMacdSignal359();
-	        String status = tempResult.getMacd359Status();
+        }else if(fast == 12 && slow == 26 && signal == 9){
+        	
+	        double macdValue = analysisResult.getMacd();
+	        double signalValue = analysisResult.getMacdSignal();
+	        String status = analysisResult.getMacdStatus();
 	        
 	        return String.format("MACD: %.4f, Signal: %.4f, Status: %s", macdValue, signalValue, status);
-        }
+        }else{
+        	
+        	double macdValue = Double.valueOf(analysisResult.getCustomIndicatorValue(macdName +"_MACD"));
+	        double signalValue = Double.valueOf(analysisResult.getCustomIndicatorValue(macdName +"_MACDSignal"));
+	        String status = (String) analysisResult.getCustomIndicatorValue(macdName +"_MACDStatus");
+	        
+	        return String.format("MACD: %.4f, Signal: %.4f, Status: %s", macdValue, signalValue, status);
+        }*/
+        
+        double macdValue = macdStrategy.getMACDValue(analysisResult);
+        double signalValue = macdStrategy.getMACDSignal(analysisResult);
+        String status = (String) macdStrategy.getMACDStatus(analysisResult);
+        
+        return String.format("MACD: %.4f, Signal: %.4f, Status: %s", macdValue, signalValue, status);
     }
 
-    private static String calculateRSIValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomRSIValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult analysisResult) {
         
         int period = getIntParameter(parameters, "period", 14);
         
         // Use existing RSIStrategy to calculate
-        RSIStrategy rsiStrategy = new RSIStrategy(null);
-        AnalysisResult tempResult = new AnalysisResult();
-        rsiStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        RSIStrategy rsiStrategy = (RSIStrategy) createCustomIndicatorStrategy(customIndicator);
+        //AnalysisResult tempResult = new AnalysisResult();
+        rsiStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
         
-        double rsiValue = tempResult.getRsi();
-        String trend = tempResult.getRsiTrend();
+		/*
+		 * if(rsiStrategy.getPeriod() == 14) { double rsiValue =
+		 * analysisResult.getRsi(); String trend = analysisResult.getRsiTrend();
+		 * 
+		 * return String.format("RSI: %.2f, Trend: %s", rsiValue, trend); }else {
+		 * 
+		 * String rsiName = rsiStrategy.getName();
+		 * 
+		 * double rsiValue =
+		 * Double.valueOf(analysisResult.getCustomIndicatorValue(rsiName +"_RSI"));
+		 * String trend = (String) (analysisResult.getCustomIndicatorValue(rsiName
+		 * +"_RSITrend"));
+		 * 
+		 * return String.format("RSI: %.2f, Trend: %s", rsiValue, trend); }
+		 */
+        
+        double rsiValue = rsiStrategy.getRSIValue(analysisResult);
+        String trend = (String)  rsiStrategy.getRSITrend(analysisResult);
         
         return String.format("RSI: %.2f, Trend: %s", rsiValue, trend);
     }
 
-    private static String calculatePSARValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomPSARValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult analysisResult) {
         
-        double step = getDoubleParameter(parameters, "step", 0.02);
-        double maxStep = getDoubleParameter(parameters, "max", 0.2);
+        //double step = getDoubleParameter(parameters, "step", 0.02);
+        //double maxStep = getDoubleParameter(parameters, "max", 0.2);
         
         // Use existing PSARStrategy to calculate
-        PSARStrategy psarStrategy = new PSARStrategy(step, maxStep, customIndicator.getName(), null);
-        AnalysisResult tempResult = new AnalysisResult();
-        psarStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        PSARStrategy psarStrategy = (PSARStrategy) createCustomIndicatorStrategy(customIndicator); 
+        //new PSARStrategy(step, maxStep, customIndicator.getName(), null);
+        //AnalysisResult tempResult = new AnalysisResult();
+        psarStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
         
         // Determine which PSAR value to use based on step
         double psarValue;
+        
+        String psarName = psarStrategy.getName();
+        
         String trend;
-        if (step == 0.01) {
-            psarValue = tempResult.getPsar001();
-            trend = tempResult.getPsar001Trend();
-        } else if(step== 0.05){
-            psarValue = tempResult.getPsar005();
-            trend = tempResult.getPsar005Trend();
-        } else {
-            psarValue = tempResult.getPsar();
-            trend = tempResult.getPsarTrend();
-        }
+		/*
+		 * if (step == 0.01) { psarValue = analysisResult.getPsar001(); trend =
+		 * analysisResult.getPsar001Trend(); } else if(step== 0.05){ psarValue =
+		 * analysisResult.getPsar005(); trend = analysisResult.getPsar005Trend(); } else
+		 * { psarValue = Double.valueOf(analysisResult.getCustomIndicatorValue(psarName
+		 * +"_PSAR")); trend =
+		 * String.valueOf(analysisResult.getCustomIndicatorValue(psarName
+		 * +"_PSARTrend")); }
+		 */
+        
+        psarValue = psarStrategy.getPsarValue(analysisResult);
+        trend = (String) psarStrategy.getPsarTrend(analysisResult);
         
         return String.format("PSAR: %.4f, Trend: %s", psarValue, trend);
     }
 
-    private static String calculateTrendValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomTrendValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult analysisResult) {
         
         // Use existing TrendStrategy to calculate
-        TrendStrategy trendStrategy = new TrendStrategy(null);
-        AnalysisResult tempResult = new AnalysisResult();
-        trendStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        TrendStrategy trendStrategy = (TrendStrategy) createCustomIndicatorStrategy(customIndicator); //new TrendStrategy(sma1, sma2, sma3, null);
+        //AnalysisResult tempResult = new AnalysisResult();
+        trendStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
         
-        double sma20 = tempResult.getSma20();
-        double sma200 = tempResult.getSma200();
-        String trend = tempResult.getSmaTrend();
+		/*
+		 * if(trendStrategy.getSma1() == 9 && trendStrategy.getSma2() == 20 &&
+		 * trendStrategy.getSma3() == 200) { double sma20 = analysisResult.getSma20();
+		 * double sma200 = analysisResult.getSma200(); String trend =
+		 * analysisResult.getSmaTrend();
+		 * 
+		 * return String.format("SMA20: %.2f, SMA200: %.2f, Trend: %s", sma20, sma200,
+		 * trend);
+		 * 
+		 * }else {
+		 * 
+		 * String trendName = trendStrategy.getName();
+		 * 
+		 * double sm1 = Double.valueOf(analysisResult.getCustomIndicatorValue(trendName
+		 * +"_TREND1")); double sm2 =
+		 * Double.valueOf(analysisResult.getCustomIndicatorValue(trendName +"_TREND1"));
+		 * double sm3 = Double.valueOf(analysisResult.getCustomIndicatorValue(trendName
+		 * +"_TREND1"));
+		 * 
+		 * String trend =
+		 * String.valueOf(analysisResult.getCustomIndicatorValue(trendName
+		 * +"_TRENDTrend"));
+		 * 
+		 * return String.format("SMA1: %.2f, SMA2: %.2f, SMA3: %.2f, Trend: %s", sm1,
+		 * sm2, sm3, trend);
+		 * 
+		 * }
+		 */
         
-        return String.format("SMA20: %.2f, SMA200: %.2f, Trend: %s", sma20, sma200, trend);
+        return trendStrategy.getValueTrendValue(analysisResult);
     }
 
-    private static String calculateVolumeMAValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomVolumeMAValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult analysisResult) {
         
-        int period = getIntParameter(parameters, "period", 20);
         
         // Use existing VolumeStrategyMA to calculate
-        VolumeStrategyMA volumeStrategy = new VolumeStrategyMA(null);
-        volumeStrategy.setPeriod(period);
-        AnalysisResult tempResult = new AnalysisResult();
-        volumeStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        VolumeStrategyMA volumeStrategy = (VolumeStrategyMA) createCustomIndicatorStrategy(customIndicator); //new VolumeStrategyMA(period, null);
         
-        //double volumeMA = tempResult.getVolume20MA();
+        volumeStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
+		/*
+		 * 
+		 * 
+		 * if(volumeStrategy.getPeriod() == 20 ) { String trend =
+		 * analysisResult.getVolume20Trend(); double volumeMA =
+		 * analysisResult.getVolume20MA();
+		 * 
+		 * return String.format("VolumeMA(%d): %.0f, Trend: %s",
+		 * volumeStrategy.getPeriod(), volumeMA, trend);
+		 * 
+		 * }else {
+		 * 
+		 * String trendName = volumeStrategy.getName();
+		 * 
+		 * double volumeMA=
+		 * Double.valueOf(analysisResult.getCustomIndicatorValue(trendName
+		 * +"_VOLUMEMA")); String trend =
+		 * String.valueOf(analysisResult.getCustomIndicatorValue(trendName
+		 * +"_VOLUMEMATrend"));
+		 * 
+		 * return String.format("VolumeMA(%d): %.0f, Trend: %s",
+		 * volumeStrategy.getPeriod(), volumeMA, trend);
+		 * 
+		 * }
+		 */
         
-        return tempResult.getVolume20Trend();//String.format("VolumeMA(%d): %.0f", period, volumeMA);
+        String trend = volumeStrategy.getTrend(analysisResult);
+        double volumeMA = volumeStrategy.getVolumeMA(analysisResult);
+        
+        return String.format("VolumeMA(%d): %.0f, Trend: %s", volumeStrategy.getPeriod(), volumeMA, trend);
     }
 
     
-    private static String calculateMovingAverageValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomMovingAverageValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters,  AnalysisResult analysisResult) {
         
         int period = getIntParameter(parameters, "period", 20);
         String maType = getStringParameter(parameters, "type", "SMA");
         
         // Use the new MovingAverageStrategy
-        MovingAverageStrategy maStrategy = new MovingAverageStrategy(period, maType, customIndicator.getName(), null);
-        AnalysisResult tempResult = new AnalysisResult();
+        MovingAverageStrategy maStrategy = (MovingAverageStrategy)createCustomIndicatorStrategy(customIndicator);//new MovingAverageStrategy(period, maType, customIndicator.getName(), null);
+        //AnalysisResult tempResult = new AnalysisResult();
         
         // Use the last index for calculation (most recent value)
         int lastIndex = series.getEndIndex();
-        maStrategy.calculate(series, tempResult, lastIndex);
+        maStrategy.calculate(series, analysisResult, lastIndex);
         
         // Get the moving average value from custom indicator storage
-        String maValueStr = tempResult.getCustomIndicatorValue(customIndicator.getName());
-        String trend = tempResult.getCustomIndicatorValue(customIndicator.getName() + "_Trend");
+        String maValueStr = maStrategy.getMAValue(analysisResult);	//analysisResult.getCustomIndicatorValue(customIndicator.getName());
+        String trend = maStrategy.getMATrend(analysisResult);		//analysisResult.getCustomIndicatorValue(customIndicator.getName() + "_MATrend");
         
         double maValue;
         try {
@@ -537,8 +629,8 @@ public class TechnicalAnalysisService {
         return String.format("%s(%d): %.2f", maType, period, maValue);
     }*/
 
-    private static String calculateHighestCloseOpenValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters, String timeframe, String symbol) {
+    private static String calculateCustomHighestCloseOpenValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, String timeframe, String symbol, AnalysisResult analysisResult) {
         
         String hcoTimeRange = getStringParameter(parameters, "timeRange", "1D");
         String hcoSession = getStringParameter(parameters, "session", "all");
@@ -552,44 +644,44 @@ public class TechnicalAnalysisService {
         hcoStrategy.setTf(timeframe);
         hcoStrategy.setSymbol(symbol);
         
-        AnalysisResult tempResult = new AnalysisResult();
-        hcoStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        //AnalysisResult tempResult = new AnalysisResult();
+        hcoStrategy.analyzeSymbol(series, startIndex, endIndex, analysisResult);
         
-        double highestValue = tempResult.getHighestCloseOpen();
-        String status = tempResult.getHighestCloseOpenStatus();
+        double highestValue = hcoStrategy.getHighestCloseOpen(analysisResult); 
+        String status = hcoStrategy.getHighestCloseOpenStatus(analysisResult); 
         
         return String.format("Value: %.2f, Status: %s", highestValue, status);
     }
 
-    private static String calculateVWAPValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomVWAPValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult result) {
         
         // Use existing VWAP strategy to calculate
         AdvancedVWAPIndicatorStrategy vwapStrategy = new AdvancedVWAPIndicatorStrategy(null);
-        AnalysisResult tempResult = new AnalysisResult();
-        vwapStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        //AnalysisResult tempResult = new AnalysisResult();
+        vwapStrategy.analyzeSymbol(series, startIndex, endIndex, result);
         
-        String status = tempResult.getVwapStatus();
+        String status = result.getVwapStatus();
         
         return String.format("VWAP Status: %s", status);
     }
 
-    private static String calculateHeikenAshiValue(CustomIndicator customIndicator, BarSeries series,
-            int startIndex, int endIndex, Map<String, Object> parameters) {
+    private static String calculateCustomHeikenAshiValue(CustomIndicator customIndicator, BarSeries series,
+            int startIndex, int endIndex, Map<String, Object> parameters, AnalysisResult result) {
         
         // Use existing HeikenAshi strategy to calculate
         HeikenAshiStrategy haStrategy = new HeikenAshiStrategy(null);
-        AnalysisResult tempResult = new AnalysisResult();
-        haStrategy.analyzeSymbol(series, startIndex, endIndex, tempResult);
+        //AnalysisResult tempResult = new AnalysisResult();
+        haStrategy.analyzeSymbol(series, startIndex, endIndex, result);
         
-        double close = tempResult.getHeikenAshiClose();
-        double open = tempResult.getHeikenAshiOpen();
-        String trend = tempResult.getHeikenAshiTrend();
+        double close = result.getHeikenAshiClose();
+        double open = result.getHeikenAshiOpen();
+        String trend = result.getHeikenAshiTrend();
         
         return String.format("Close: %.2f, Open: %.2f, Trend: %s", close, open, trend);
     }
     
-    private static String calculateMovingAverageTargetValue(CustomIndicator customIndicator, BarSeries series,
+    private static String calculateCustomMovingAverageTargetValue(CustomIndicator customIndicator, BarSeries series,
             int startIndex, int endIndex, Map<String, Object> parameters, String timeframe, String symbol, AnalysisResult result, PriceData priceData) {
         
         try {
@@ -631,14 +723,14 @@ public class TechnicalAnalysisService {
             strategy.setSymbol(symbol);
             
             // Create a temporary result object
-            AnalysisResult tempResult = new AnalysisResult();
+            //AnalysisResult tempResult = new AnalysisResult();
             
             // Calculate using the strategy
-            strategy.calculate(series, tempResult, lastIndex);
+            strategy.calculate(series, result, lastIndex);
             
             // Get the target value
-            Double targetValue = tempResult.getMovingAverageTargetValue();
-            Double targetPercentile = tempResult.getMovingAverageTargetValuePercentile();
+            Double targetValue = strategy.getMovingAverageTargetValue(result);
+            Double targetPercentile = strategy.getMovingAverageTargetValuePercentile(result); 
             
             if (targetValue == null || Double.isNaN(targetValue)) {
                 return "N/A - Calculation error";
@@ -733,7 +825,7 @@ public class TechnicalAnalysisService {
     /**
      * Creates strategy instances from custom indicator definitions
      */
-    private static AbstractIndicatorStrategy createCustomIndicatorStrategy(CustomIndicator customIndicator) {
+    public static AbstractIndicatorStrategy createCustomIndicatorStrategy(CustomIndicator customIndicator) {
         if (customIndicator == null) return null;
         
         String type = customIndicator.getType().toUpperCase();
@@ -750,7 +842,7 @@ public class TechnicalAnalysisService {
                 case "RSI":
                     int period = getIntParameter(parameters, "period", 14);
                     // Create a parameterized RSI strategy - you may need to modify RSIStrategy to accept period
-                    RSIStrategy rsiStrategy = new RSIStrategy(null);
+                    RSIStrategy rsiStrategy = new RSIStrategy(period, null);
                     // Set custom period if your RSIStrategy supports it
                     return rsiStrategy;
                     
@@ -764,12 +856,12 @@ public class TechnicalAnalysisService {
                     int sma2 = getIntParameter(parameters, "sma2", 20);
                     int sma3 = getIntParameter(parameters, "sma3", 200);
                     // You may need to modify TrendStrategy to accept custom periods
-                    return new TrendStrategy(null);
+                    return new TrendStrategy(sma1, sma2, sma3, null);
                     
                 case "VOLUMEMA":
                     int volumePeriod = getIntParameter(parameters, "period", 20);
                     // You may need to modify VolumeStrategyMA to accept custom period
-                    return new VolumeStrategyMA(null);
+                    return new VolumeStrategyMA(volumePeriod, null);
                     
                 case "MOVINGAVERAGE":
                     int maPeriod = getIntParameter(parameters, "period", 20);
@@ -780,7 +872,9 @@ public class TechnicalAnalysisService {
                     } else {
                         // Default to SMA - you may need an SMA strategy class
                     }
-                    return new TrendStrategy(null); // Fallback to trend strategy
+                    
+                    return new MovingAverageStrategy(maPeriod, maType, customIndicator.getName(), null);
+                    
                     
                 case "HIGHESTCLOSEOPEN":
                     String hcoTimeRange = getStringParameter(parameters, "timeRange", "1D");

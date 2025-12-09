@@ -48,19 +48,31 @@ public class MACDStrategy extends AbstractIndicatorStrategy {
         double prevMacd = endIndex > 0 ? macd.getValue(endIndex - 1).doubleValue() : Double.NaN;
         double prevSignal = endIndex > 0 ? signal.getValue(endIndex - 1).doubleValue() : Double.NaN;
         
-        if ("MACD(5,8,9)".equals(getName())) {
+        double zscore = calculateZscore(series, result, endIndex);
+
+        String status = determineMacdStatus(currentMacd, currentSignal, prevMacd, prevSignal, series, result, endIndex);
+        
+        String name = getName();
+        
+        if ("MACD(5,8,9)".equals(name)) {
             result.setMacd359(currentMacd);
             result.setMacdSignal359(currentSignal);
-            String status = determineMacdStatus(currentMacd, currentSignal, prevMacd, prevSignal, series, result, endIndex);
             result.setMacd359Status(status);
-        } else {
+            result.setMacd359Zscore(zscore);
+        } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
             result.setMacd(currentMacd);
             result.setMacdSignal(currentSignal);
-            String status = determineMacdStatus(currentMacd, currentSignal, prevMacd, prevSignal, series, result, endIndex);
             result.setMacdStatus(status);
-        }  
+            result.setMacdZscore(zscore);
+        } else {
+        	// save result in custom
+        	
+        	result.setCustomIndicatorValue(name + "_MACD", String.valueOf(currentMacd));
+        	result.setCustomIndicatorValue(name + "_MACDSignal", String.valueOf(currentSignal));
+        	result.setCustomIndicatorValue(name + "_MACDStatus", status);
+        	result.setCustomIndicatorValue(name + "_MACDZscore", String.valueOf(zscore));
+        } 
         
-        // Z-score is already calculated in determineMacdStatus, so we don't call it again
     }
     
     private String determineMacdStatus(double currentMacd, double currentSignal, 
@@ -115,23 +127,80 @@ public class MACDStrategy extends AbstractIndicatorStrategy {
     
     @Override
     protected void updateTrendStatus(AnalysisResult result, String currentTrend) {
-        if ("MACD".equals(getName())) {
+    	
+        String name = getName();
+        
+        if ("MACD(5,8,9)".equals(name)) {
+        	result.setMacd359Status(currentTrend);
+        } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
             result.setMacdStatus(currentTrend);
-        } else if ("MACD(5,8,9)".equals(getName())) {
-            result.setMacd359Status(currentTrend);
-        }
+        } else {
+        	// save result in custom
+        	result.setCustomIndicatorValue(name + "_MACDStatus", currentTrend);
+        } 
+        
     }
+    
+	public double getMACDValue(AnalysisResult result) {
+    	 String name = getName();
+         
+         if ("MACD(5,8,9)".equals(name)) {
+         	return result.getMacd359();
+         } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
+         	return result.getMacd();
+         } else {
+         	// save result in custom
+         	return Double.valueOf(result.getCustomIndicatorValue(name + "_MACD"));
+         } 
+	}
+	
+	public double getMACDSignal(AnalysisResult result) {
+   	 String name = getName();
+        
+        if ("MACD(5,8,9)".equals(name)) {
+        	return result.getMacdSignal359();
+        } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
+        	return result.getMacdSignal();
+        } else {
+        	// save result in custom
+        	return Double.valueOf(result.getCustomIndicatorValue(name + "_MACDSignal"));
+        } 
+	}
+	
+	public String getMACDStatus(AnalysisResult result) {
+	   	 String name = getName();
+	        
+	        if ("MACD(5,8,9)".equals(name)) {
+	        	return result.getMacd359Status();
+	        } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
+	        	return result.getMacdStatus();
+	        } else {
+	        	// save result in custom
+	        	return result.getCustomIndicatorValue(name + "_MACDStatus");
+	        } 
+		}
     
     @Override
     public String determineTrend(AnalysisResult result) {
         // This method signature doesn't have access to BarSeries, so we can't calculate Z-score
         // We'll use a simplified version for backward compatibility
-        if ("MACD".equals(getName())) {
+        /*if ("MACD".equals(getName())) {
             return result.getMacdStatus() != null ? result.getMacdStatus() : "Neutral";
         } else if ("MACD(5,8,9)".equals(getName())) {
             return result.getMacd359Status() != null ? result.getMacd359Status() : "Neutral";
-        }
-        return "Neutral";
+        }*/
+        
+        String name = getName();
+        
+        if ("MACD(5,8,9)".equals(name)) {
+        	return result.getMacd359Status() != null ? result.getMacd359Status() : "Neutral";
+        } else if(fastPeriod == 12 && slowPeriod == 26 && signalPeriod == 9){
+        	return result.getMacdStatus() != null ? result.getMacdStatus() : "Neutral";
+        } else {
+        	// save result in custom
+        	return result.getCustomIndicatorValue(name + "_MACDStatus") != null ? result.getCustomIndicatorValue(name + "_MACDStatus") : "Neutral";
+        } 
+        
     }
     
     // Your existing calculateZscore method remains unchanged
@@ -184,12 +253,14 @@ public class MACDStrategy extends AbstractIndicatorStrategy {
         double normalizedZscore = normalizeScore(zscore, maxPossibleScore);
         
         // Store in result
-        if ("MACD(5,8,9)".equals(getName())) {
-            result.setMacd359Zscore(normalizedZscore);
-        } else {
-            result.setMacdZscore(normalizedZscore);
-        }
+		/*
+		 * if ("MACD(5,8,9)".equals(getName())) {
+		 * result.setMacd359Zscore(normalizedZscore); } else {
+		 * result.setMacdZscore(normalizedZscore); }
+		 */
         
         return normalizedZscore;
     }
+
+	
 }

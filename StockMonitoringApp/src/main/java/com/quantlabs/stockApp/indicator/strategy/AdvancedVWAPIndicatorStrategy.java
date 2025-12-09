@@ -28,7 +28,7 @@ public class AdvancedVWAPIndicatorStrategy extends AbstractIndicatorStrategy{
 
 	@Override
 	public String determineTrend(AnalysisResult result) {
-		double vwapValue = result.getVwap();
+		/*double vwapValue = result.getVwap();
 		if (vwapValue == Double.NaN) {
 	        return "Neutral";
 	    }
@@ -37,7 +37,8 @@ public class AdvancedVWAPIndicatorStrategy extends AbstractIndicatorStrategy{
 	    } else if (vwapValue < 30) {
 	        return "Oversold";
 	    }
-	    return "Neutral";
+	    return "Neutral";*/
+		return result.getVwapStatus();
 	}
 
 	@Override
@@ -59,7 +60,8 @@ public class AdvancedVWAPIndicatorStrategy extends AbstractIndicatorStrategy{
         }
         
         // Calculate Z-Score
-        calculateZscore(series, result, endIndex);
+        double zscore = calculateZscore(series, result, endIndex);
+        result.setVwapZscore(zscore);
     }
 	
 	// In AdvancedVWAPIndicatorStrategy.java - Add this method

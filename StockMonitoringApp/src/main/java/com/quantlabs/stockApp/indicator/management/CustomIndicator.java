@@ -44,6 +44,59 @@ public class CustomIndicator {
         return displayName;
     }
     
+    public String generateGenericName() {
+        switch (type.toUpperCase()) {
+            case "MACD":
+                int fast = (int) parameters.getOrDefault("fast", 12);
+                int slow = (int) parameters.getOrDefault("slow", 26);
+                int signal = (int) parameters.getOrDefault("signal", 9);
+                return String.format("MACD(%d,%d,%d)", fast, slow, signal);
+                
+            case "PSAR":
+                double step = (double) parameters.getOrDefault("step", 0.02);
+                double max = (double) parameters.getOrDefault("max", 0.2);
+                return String.format("PSAR(%.2f)", step, name);
+                
+            case "RSI":
+                int period = (int) parameters.getOrDefault("period", 14);
+                return String.format("RSI(%d)", period, name);
+                
+            case "TREND":
+                int sma1 = (int) parameters.getOrDefault("sma1", 9);
+                int sma2 = (int) parameters.getOrDefault("sma2", 20);
+                int sma3 = (int) parameters.getOrDefault("sma3", 200);
+                return String.format("TREND(%d,%d,%d)", sma1, sma2, sma3, name);
+                
+            case "VOLUMEMA":
+                int volumePeriod = (int) parameters.getOrDefault("period", 20);
+                return String.format("VOLUMEMA(%d)", volumePeriod , name);
+                
+            case "MOVINGAVERAGE":
+                int maPeriod = (int) parameters.getOrDefault("period", 20);
+                String maType = (String) parameters.getOrDefault("type", "SMA");
+                return String.format("%s(%d)", maType, maPeriod, name);
+                
+            case "HIGHESTCLOSEOPEN":
+                String timeRange = (String) parameters.getOrDefault("timeRange", "1D");
+                String session = (String) parameters.getOrDefault("session", "all");
+                int lookback = (int) parameters.getOrDefault("lookback", 5);
+                return String.format("HIGHESTCLOSEOPEN(%s,%s,%d)", timeRange, session, lookback, name);
+            case "MOVINGAVERAGETARGETVALUE":
+            	
+           	 	int ma1Period = (int) parameters.getOrDefault("ma1Period", 20);
+                int ma2Period = (int) parameters.getOrDefault("ma2Period", 50);
+                //String ma1PriceType = getStringParameter(parameters, "ma1PriceType", "CLOSE");
+                //String ma2PriceType = getStringParameter(parameters, "ma2PriceType", "CLOSE");
+                String ma1Type = (String) parameters.getOrDefault("ma1Type", "SMA");
+                String ma2Type = (String) parameters.getOrDefault("ma2Type", "SMA");
+                //String trendSource = getStringParameter(parameters, "trendSource", "PSAR_0.01");
+                
+               return String.format("MOVINGAVERAGETARGETVALUE(%s%d,%s%d)", ma1Type, ma1Period, ma2Type, ma2Period, name);    
+            default:
+                return name;
+        }
+    }
+    
     private String generateDisplayName() {
         switch (type.toUpperCase()) {
             case "MACD":
@@ -65,11 +118,11 @@ public class CustomIndicator {
                 int sma1 = (int) parameters.getOrDefault("sma1", 9);
                 int sma2 = (int) parameters.getOrDefault("sma2", 20);
                 int sma3 = (int) parameters.getOrDefault("sma3", 200);
-                return String.format("Trend(%d,%d,%d) - %s", sma1, sma2, sma3, name);
+                return String.format("TREND(%d,%d,%d) - %s", sma1, sma2, sma3, name);
                 
             case "VOLUMEMA":
                 int volumePeriod = (int) parameters.getOrDefault("period", 20);
-                return String.format("VolumeMA(%d) - %s", volumePeriod , name);
+                return String.format("VOLUMEMA(%d) - %s", volumePeriod , name);
                 
             case "MOVINGAVERAGE":
                 int maPeriod = (int) parameters.getOrDefault("period", 20);
@@ -80,10 +133,23 @@ public class CustomIndicator {
                 String timeRange = (String) parameters.getOrDefault("timeRange", "1D");
                 String session = (String) parameters.getOrDefault("session", "all");
                 int lookback = (int) parameters.getOrDefault("lookback", 5);
-                return String.format("HighestCloseOpen(%s,%s,%d) - %s", timeRange, session, lookback, name);
+                return String.format("HIGHESTCLOSEOPEN(%s,%s,%d) - %s", timeRange, session, lookback, name);
                 
-            default:
-                return name;
+            case "MOVINGAVERAGETARGETVALUE":
+            	
+            	 int ma1Period = (int) parameters.getOrDefault("ma1Period", 20);
+                 int ma2Period = (int) parameters.getOrDefault("ma2Period", 50);
+                 //String ma1PriceType = getStringParameter(parameters, "ma1PriceType", "CLOSE");
+                 //String ma2PriceType = getStringParameter(parameters, "ma2PriceType", "CLOSE");
+                 String ma1Type = (String) parameters.getOrDefault("ma1Type", "SMA");
+                 String ma2Type = (String) parameters.getOrDefault("ma2Type", "SMA");
+                 //String trendSource = getStringParameter(parameters, "trendSource", "PSAR_0.01");
+                 
+                return String.format("MOVINGAVERAGETARGETVALUE(%s%d,%s%d) - %s", ma1Type, ma1Period, ma2Type, ma2Period, name);
+            	
+                
+            default:            	
+            	return String.format("%s - %s", type, name);
         }
     }
     

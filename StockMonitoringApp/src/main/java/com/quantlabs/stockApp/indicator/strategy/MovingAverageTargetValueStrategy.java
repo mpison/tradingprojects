@@ -24,6 +24,8 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
     private String ma2Type = "SMA";
     private String trendSource = "PSAR_0.01";
     
+    public final static String MATV_STRATEGY_NAME_CONSTANT = "MOVINGAVERAGETARGETVALUE";
+    
     public MovingAverageTargetValueStrategy(ConsoleLogger logger) {
         super(logger);
     }
@@ -65,14 +67,20 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
     
     @Override
     public String getName() {
-        if (customIndicator != null) {
-            return customIndicator.getDisplayName();
+        if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
+            return MATV_STRATEGY_NAME_CONSTANT;//customIndicator.getDisplayName();
         }
-        return String.format("MATarget(%s%d-%s%d)", ma1Type, ma1Period, ma2Type, ma2Period);
+        return String.format(MATV_STRATEGY_NAME_CONSTANT+"(%s%d,%s%d)", ma1Type, ma1Period, ma2Type, ma2Period);
     }
     
     @Override
     public void calculate(BarSeries series, AnalysisResult result, int endIndex) {
+    	
+    	String name = getName();
+    	
+    	double targetValueDouble = 0;
+    	String displayValueForCustom = "";
+    	
         try {
         	
         	//ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
@@ -84,8 +92,10 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
     		// Set price for the first bar
     		result.setPrice(close.doubleValue());
         	
+    		
         	
             String trendDirection = determineTrendDirection(result, series);
+            
             
             // Override trend direction if custom trend source is specified
             if (!"PRICE_ACTION".equals(trendSource)) {
@@ -118,8 +128,9 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
             if (endIndex >= 0) {
                 Num value = targetValue.getValue(endIndex);
                 if (value != null && !value.isNaN()) {
-                    double targetValueDouble = value.doubleValue();
-                    result.setMovingAverageTargetValue(targetValueDouble);
+                    targetValueDouble = value.doubleValue();
+                    //result.setMovingAverageTargetValue(targetValueDouble);
+                    //displayValue = String.valueOf(targetValueDouble);
                     
                     // Calculate additional metrics for context
                     double currentPrice = series.getBar(endIndex).getClosePrice().doubleValue();
@@ -127,42 +138,95 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
                     double percentDifference = (targetValueDouble / currentPrice) * 100;
                     
                     // Store in custom indicator values for display
-                    String displayValue = String.format("%.2f (%.2f%%)", targetValueDouble, percentDifference);
-                    result.setCustomIndicatorValue(getName(), displayValue);
+                    displayValueForCustom = String.format("%.4f (%.4f%%)", targetValueDouble, percentDifference);
+                    //result.setCustomIndicatorValue(getName(), displayValue);
                     
                     // Store detailed information
-                    result.setCustomIndicatorValue(getName() + "_Details", 
+                    /*result.setCustomIndicatorValue(getName() + "_Details", 
                         String.format("MA1(%s%d): %.2f, MA2(%s%d): %.2f, Trend: %s (Source: %s)", 
                             ma1Type, ma1Period, targetValue.getMa1Value(endIndex),
                             ma2Type, ma2Period, targetValue.getMa2Value(endIndex),
-                            trendDirection, trendSource));
+                            trendDirection, trendSource));*/
                     
                     if (logger != null) {
                         logger.log(String.format("MovingAverageTargetValue for %s: %.2f (Current: %.2f, Diff: %.2f%%, Trend: %s, Source: %s)", 
                             symbol, targetValueDouble, currentPrice, percentDifference, trendDirection, trendSource));
                     }
                 } else {
-                    result.setMovingAverageTargetValue(null);
-                    result.setCustomIndicatorValue(getName(), "N/A");
+                    //result.setMovingAverageTargetValue(null);
+                    //result.setCustomIndicatorValue(getName(), "N/A");
                     if (logger != null) {
                         logger.log("MovingAverageTargetValue is NaN or null for " + symbol);
                     }
                 }
             } else {
-                result.setMovingAverageTargetValue(null);
-                result.setCustomIndicatorValue(getName(), "N/A");
+                //result.setMovingAverageTargetValue(null);
+                //result.setCustomIndicatorValue(getName(), "N/A");
                 if (logger != null) {
                     logger.log("Empty series for MovingAverageTargetValue for " + symbol);
                 }
             }
         } catch (Exception e) {
-            result.setMovingAverageTargetValue(null);
-            result.setCustomIndicatorValue(getName(), "Error");
+            //result.setMovingAverageTargetValue(null);
+            //result.setCustomIndicatorValue(getName(), "Error");
             if (logger != null) {
                 logger.log("Error calculating MovingAverageTargetValue for " + symbol + ": " + e.getMessage());
             }
             e.printStackTrace();
         }
+        
+        double zscore = calculateZscore(series, result, endIndex);
+        
+        if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
+        	result.setMovingAverageTargetValue(targetValueDouble);
+        	result.setMovingAverageTargetValueZscore(zscore);
+        	result.setMovingAverageTargetValueStatus(displayValueForCustom);
+		} else {
+			
+			result.setCustomIndicatorValue(name, String.valueOf(targetValueDouble));
+			
+			result.setCustomIndicatorValue(name+ "_MOVINGAVERAGETARGETVALUEStatus", displayValueForCustom);
+			
+			// save result in custom
+			result.setCustomIndicatorValue(name + "_MOVINGAVERAGETARGETVALUEZscore", String.valueOf(zscore));
+
+		}
+    }
+    
+    public Double getMovingAverageTargetValue(AnalysisResult result) {
+    	
+    	if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
+        	return result.getMovingAverageTargetValue();        	
+		} else {
+			
+			return Double.valueOf(result.getCustomIndicatorValue(getName()));			
+		}
+    }
+    
+    public Double getMovingAverageTargetValueStatus(AnalysisResult result) {
+    	
+    	if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
+        	return Double.valueOf(result.getMovingAverageTargetValueStatus());        	
+		} else {			
+			return Double.valueOf(result.getCustomIndicatorValue(getName() + "_MOVINGAVERAGETARGETVALUEStatus"));			
+		}
+    }
+    
+    public Double getMovingAverageTargetValuePercentile(AnalysisResult result) {
+    	if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
+        	return result.getMovingAverageTargetValuePercentile();        	
+		} else {
+			
+			Double targetValue = Double.valueOf(result.getCustomIndicatorValue(getName()));
+			
+			Double price = result.getPrice();
+			
+			if(targetValue > 0) {	
+    			return (( targetValue) / price) * 100;
+    		}
+			
+			return -1.0;
+		}
     }
     
     private String determineTrendDirection(AnalysisResult result, BarSeries series) {
@@ -438,7 +502,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
         }
         
         // Set it on the result
-        result.setMovingAverageTargetValueZscore(zscore);
+        //result.setMovingAverageTargetValueZscore(zscore);
         return zscore;
     }
     

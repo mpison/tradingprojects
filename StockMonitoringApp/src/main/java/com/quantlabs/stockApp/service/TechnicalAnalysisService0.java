@@ -64,7 +64,7 @@ public class TechnicalAnalysisService0 {
         
         registerStrategy(new AdvancedVWAPIndicatorStrategy(logger));
         registerStrategy(new VolumeStrategy(logger));
-        registerStrategy(new VolumeStrategyMA(logger));
+        registerStrategy(new VolumeStrategyMA(20, logger));
     }
     
     public void registerStrategy(AbstractIndicatorStrategy strategy) {

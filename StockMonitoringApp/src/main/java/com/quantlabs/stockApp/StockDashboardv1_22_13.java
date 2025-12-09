@@ -44,7 +44,6 @@ import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -121,6 +120,7 @@ import com.quantlabs.stockApp.indicator.management.StrategyConfig;
 import com.quantlabs.stockApp.indicator.management.StrategyExecutionService;
 import com.quantlabs.stockApp.indicator.management.ZScoreCalculator;
 import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
+import com.quantlabs.stockApp.indicator.strategy.MovingAverageTargetValueStrategy;
 import com.quantlabs.stockApp.model.PriceData;
 import com.quantlabs.stockApp.model.PriceDataColumnRegistry;
 import com.quantlabs.stockApp.model.WatchlistData;
@@ -162,9 +162,9 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	private final String[] dataSources = { "Alpaca", "Yahoo", "Polygon" };
 	private final String[] allTimeframes = { "1W", "1D", "4H", "1H", "30Min", "15Min", "5Min", "1Min" };
 
-	private final String[] allIndicators = { "Trend", "RSI", "MACD", "MACD Breakout", "MACD(5,8,9)", "HeikenAshi",
+	private final String[] allIndicators = { "TREND", "RSI", "MACD", "MACD Breakout", "MACD(5,8,9)", "HeikenAshi",
 			"MACD(5,8,9) Breakout", "PSAR(0.01)", "PSAR(0.01) Breakout", "PSAR(0.05)", "PSAR(0.05) Breakout",
-			"Breakout Count", "Action", "MovingAverageTargetValue", "HighestCloseOpen", "Volume", "Volume20MA",
+			"Breakout Count", "Action", "MOVINGAVERAGETARGETVALUE", "HIGHESTCLOSEOPEN", "Volume", "VOLUMEMA(20)",
 			"VWAP" };
 
 	/*
@@ -2385,8 +2385,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		}
 
 		try {
-			List<Map<String, Object>> customIndicatorsList = (List<Map<String, Object>>) config
-					.get("globalCustomIndicators");
+			List<Map<String, Object>> customIndicatorsList = (List<Map<String, Object>>) config.
+					get("globalCustomIndicators");
 			logToConsole("📥 Loading " + customIndicatorsList.size() + " global custom indicators from configuration");
 
 			Set<CustomIndicator> loadedCustomIndicators = new HashSet<>();
@@ -4199,7 +4199,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 				JPanel movingAveTargetValuePanel = (JPanel) ((JPanel) tfCB.getParent()).getComponent(3);
 				JCheckBox movingAveTargetValueCB = (JCheckBox) movingAveTargetValuePanel.getComponent(0);
 				if (movingAveTargetValueCB.isSelected()) {
-					timeframeIndicators.get(tf).add("MovingAverageTargetValue");
+					timeframeIndicators.get(tf).add(MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT);
 				}
 			}
 		}
@@ -4820,8 +4820,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 				"premarketHigh", "high", "postmarketHigh", "premarketLow", "low", "postmarketLow"));
 
 		return datacolumns.contains(colName) || colName.contains(BREAKOUT_COUNT_COLUMN_PATTERN)
-				|| colName.contains(ZSCORE_COLUMN_PATTERN) || colName.contains("MovingAverageTargetValue")
-				|| colName.contains("Volume20MA") || colName.contains("Volume") || colName.contains("Percentile");
+				|| colName.contains(ZSCORE_COLUMN_PATTERN) || colName.contains(MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT)
+				|| colName.contains("VOLUMEMA") || colName.contains("Volume") || colName.contains("Percentile");
 	}
 
 	public void startBuzzAlert(String alertMessage) {
@@ -5458,7 +5458,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 
 				// Highlight target values
 				String colName = table.getColumnName(column);
-				if (colName != null && colName.contains("MovingAverageTargetValue")) {
+				if (colName != null && colName.contains(MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT)) {
 					c.setForeground(Color.BLUE);
 					c.setFont(c.getFont().deriveFont(Font.BOLD));
 				}
@@ -6212,6 +6212,10 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			ZonedDateTime startTime, ZonedDateTime endTime, LinkedHashMap<String, AnalysisResult> results,
 			PriceData priceData) {
 		analysisOrchestrator.setDataProvider(currentDataProvider);
+		
+		checkAndInstantiateIndicatorsManagementApp();
+
+		analysisOrchestrator.setIndicatorsManagementApp(indicatorsManagementApp);
 
 		// Pass the time range to the analysis orchestrator
 		analysisOrchestrator.setTimeRange(startTime, endTime);
@@ -6287,11 +6291,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			strategyExecutionService = createStrategyExecutionService();
 		}
 		
-		logToConsole("checkAllAlerts " ); 
-		
 		checkAndInstantiateIndicatorsManagementApp();
-		
-		logToConsole("checkAllAlerts - checkAndInstantiateIndicatorsManagementApp" ); 
 
 		strategyCheckerHelper.setIndicatorsManagementApp(indicatorsManagementApp);
 		strategyCheckerHelper.setPriceDataMap(priceDataMap);
@@ -6300,12 +6300,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		// 2. Check Z-Score Alerts (independent - based on Z-Score alert config)
 		zScoreAlertManager.setMonteCarloConfig(monteCarloConfig);
 		zScoreAlertManager.setPriceDataMap(priceDataMap);
-
-		logToConsole("checkAllAlerts - checkAndInstantiateIndicatorsManagementApp" ); 
 		
 		zScoreAlertManager.checkZScoreAlerts();
-		
-		logToConsole("checkAllAlerts - checkZScoreAlerts" ); 
 
 		// 3. Check Bullish Alerts (only if bullish checkbox is selected)
 		if (checkBullishCheckbox.isSelected()) {
@@ -6685,12 +6681,14 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 						}
 						model.setValueAt(status, row, colIndex++);
 						break;
-					case "MovingAverageTargetValue":
+					case MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT:
 						model.setValueAt(result.getMovingAverageTargetValue(), row, colIndex++);
 						break;
 					case "VWAP":
 						model.setValueAt(result.getVwapStatus(), row, colIndex++);
 						break;
+					case "VOLUMEMA(20)":
+						model.setValueAt(result.getVolume20MA(), row, colIndex++);
 					default:
 						model.setValueAt("N/A", row, colIndex++);
 						break;
@@ -6766,6 +6764,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 
 				switch (ind) {
 				case "Trend":
+				case "TREND":
 					row.add(getTrendStatus(result));
 					break;
 				case "RSI":
@@ -6828,6 +6827,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 					row.add(new BreakoutValue(totalBreakouts, displayValue));
 					break;
 				case "HighestCloseOpen":
+				case "HIGHESTCLOSEOPEN":
 					String status = "N/A";
 					if (result.getHighestCloseOpenStatus() != null) {
 						status = result.getHighestCloseOpenStatus();
@@ -6836,13 +6836,13 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 					}
 					row.add(status);
 					break;
-				case "MovingAverageTargetValue":
+				case MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT:
 					row.add(result.getMovingAverageTargetValue());
 					break;
 				case "Volume":
 					row.add(result.getVolume());
 					break;
-				case "Volume20MA":
+				case "VOLUMEMA(20)":
 					row.add(result.getVolume20MA());
 					break;
 				case "VWAP":
@@ -7184,25 +7184,28 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	}
 
 	private String getTrendStatus(AnalysisResult result) {
-		if (result.getPrice() > result.getSma20() && result.getPrice() > result.getSma200()) {
+		/*if (result.getPrice() > result.getSma20() && result.getPrice() > result.getSma200()) {
 			return "Strong Uptrend";
 		} else if (result.getPrice() < result.getSma20() && result.getPrice() < result.getSma200()) {
 			return "Strong Downtrend";
-		} /*
+		}*/ /*
 			 * else if (result.getPrice() > result.getSma20()) { return "Mild Uptrend"; }
-			 */ else {
+			  else {
 			return "Neutral";
-		}
+		}*/
+		
+		return result.getTrend();
 	}
 
 	private String getRsiStatus(AnalysisResult result) {
-		if (result.getRsi() > 70)
+		/*if (result.getRsi() > 70)
 			return "Overbought";
 		if (result.getRsi() < 30)
 			return "Oversold";
 		if (result.getRsi() > 50)
 			return "Bullish";
-		return "Bearish";
+		return "Bearish";*/
+		return result.getRsiTrend();
 	}
 
 	private String getActionRecommendation(AnalysisResult result) {
