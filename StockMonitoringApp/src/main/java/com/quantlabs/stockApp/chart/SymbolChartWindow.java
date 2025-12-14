@@ -19,6 +19,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -80,6 +81,7 @@ import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
 import com.quantlabs.stockApp.core.indicators.AdvancedVWAPStrategy.AdvancedVWAPIndicator;
 import com.quantlabs.stockApp.data.StockDataProvider;
 import com.quantlabs.stockApp.data.StockDataProviderFactory;
+import com.quantlabs.stockApp.service.AnalysisOrchestrator;
 
 import okhttp3.OkHttpClient;
 
@@ -151,50 +153,49 @@ public class SymbolChartWindow extends JFrame {
 		loadData(initialTimeframe);
 		createCharts();
 		setupLayout();
-		
+
 		updateWindowTitle();
 	}
-	
+
 	// New constructor with time range configuration
-    public SymbolChartWindow(String symbol, String initialTimeframe, Set<String> indicators,
-            StockDataProvider dataProvider, Consumer<String> logConsumer, 
-            TimeRangeConfig initialTimeRangeConfig) {
-        this.currentSymbol = symbol;
-        
-        this.indicators = new HashSet<>(indicators);
-        this.dataProvider = dataProvider;
-        this.logConsumer = logConsumer;
-        
-        // Initialize default provider configuration
-        initializeDefaultProviderConfig();
-        createDataProviderFactory();
-        
-        // Initialize time range configuration
-        if (initialTimeRangeConfig != null) {
-            this.currentTimeRangeConfig = initialTimeRangeConfig;
-            this.useCustomTimeRange = !initialTimeRangeConfig.isUseCurrentTime();
-        } else {
-            this.currentTimeRangeConfig = new TimeRangeConfig(true, null, null);
-            this.useCustomTimeRange = false;
-        }
-        
-        setTitle(symbol + " Chart with Indicators");
-        setSize(1200, 900);
-        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        
-        // Create menu bar
-        createMenuBar();
-        
-        initializeComponents();
-        createTimeframeSelector(initialTimeframe);
-        createSymbolInput();
-        loadData(initialTimeframe);
-        createCharts();
-        setupLayout();
-        
-        // Update window title to reflect initial state
-        updateWindowTitle();
-    }
+	public SymbolChartWindow(String symbol, String initialTimeframe, Set<String> indicators,
+			StockDataProvider dataProvider, Consumer<String> logConsumer, TimeRangeConfig initialTimeRangeConfig) {
+		this.currentSymbol = symbol;
+
+		this.indicators = new HashSet<>(indicators);
+		this.dataProvider = dataProvider;
+		this.logConsumer = logConsumer;
+
+		// Initialize default provider configuration
+		initializeDefaultProviderConfig();
+		createDataProviderFactory();
+
+		// Initialize time range configuration
+		if (initialTimeRangeConfig != null) {
+			this.currentTimeRangeConfig = initialTimeRangeConfig;
+			this.useCustomTimeRange = !initialTimeRangeConfig.isUseCurrentTime();
+		} else {
+			this.currentTimeRangeConfig = new TimeRangeConfig(true, null, null);
+			this.useCustomTimeRange = false;
+		}
+
+		setTitle(symbol + " Chart with Indicators");
+		setSize(1200, 900);
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+
+		// Create menu bar
+		createMenuBar();
+
+		initializeComponents();
+		createTimeframeSelector(initialTimeframe);
+		createSymbolInput();
+		loadData(initialTimeframe);
+		createCharts();
+		setupLayout();
+
+		// Update window title to reflect initial state
+		updateWindowTitle();
+	}
 
 	private void createMenuBar() {
 		JMenuBar menuBar = new JMenuBar();
@@ -624,23 +625,34 @@ public class SymbolChartWindow extends JFrame {
 			// Use stored time range configuration
 			if (useCustomTimeRange && currentTimeRangeConfig != null && !currentTimeRangeConfig.isUseCurrentTime()) {
 				// Use custom time range
-				start = currentTimeRangeConfig.getStartDateTime();
+				//start = currentTimeRangeConfig.getStartDateTime();
 				end = currentTimeRangeConfig.getEndDateTime();
+				
+				start = dataProvider.calculateDefaultStartTime(timeframe, end);
+				
 				logConsumer.accept("Loading data with custom time range");
+
+				// Load new data
+				ta4jSeries = AnalysisOrchestrator.getUpdatedBarSeries(currentSymbol, start, end, null,
+						!useCustomTimeRange, timeframe, 1000, dataProvider);
+				// dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
+
 			} else {
 				// Use current time range (default behavior)
 				end = ZonedDateTime.now();
 				start = dataProvider.calculateDefaultStartTime(timeframe, end);
 				logConsumer.accept("Loading data with current time range");
+
+				// Load new data
+				ta4jSeries = AnalysisOrchestrator.getUpdatedBarSeries(currentSymbol, start, end, null,
+						!useCustomTimeRange, timeframe, 1000, dataProvider);
+				// dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
 			}
 
 			// Clear existing data
 			ohlcSeries.clear();
 			heikenAshiSeries.clear();
 			volumeSeries.clear();
-
-			// Load new data
-			ta4jSeries = dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
 
 			// Convert to chart series
 			for (int i = 0; i < ta4jSeries.getBarCount(); i++) {
@@ -705,13 +717,13 @@ public class SymbolChartWindow extends JFrame {
 			// Store current values for next iteration
 			prevHaOpen = open;
 			prevHaClose = close;
-			
+
 			// Add progress reporting for large datasets
-	       // if ( series.getBarCount() > 1000 && i % 1000 == 0) {
-	            System.out.println("Processing bar " + i + " of " +  series.getBarCount());
-	       // }
+			// if ( series.getBarCount() > 1000 && i % 1000 == 0) {
+			//System.out.println("Processing bar " + i + " of " + series.getBarCount());
+			// }
 		}
-		
+
 		System.out.println("Processing bar done");
 	}
 
@@ -1210,36 +1222,47 @@ public class SymbolChartWindow extends JFrame {
 				// Use custom time range
 				start = currentTimeRangeConfig.getStartDateTime();
 				end = currentTimeRangeConfig.getEndDateTime();
-				
-				start = dataProvider.calculateDefaultStartTime(timeframe, start, end);
+
+				start = dataProvider.calculateDefaultStartTime(timeframe, end);
+
+				// Load new data with current symbol and appropriate time range
+				ta4jSeries = AnalysisOrchestrator.getUpdatedBarSeries(currentSymbol, start, end, null,
+						!useCustomTimeRange, timeframe, 1000, dataProvider);
+				// dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
+
 			} else {
 				// Use current time range (default behavior)
 				end = ZonedDateTime.now();
 				start = dataProvider.calculateDefaultStartTime(timeframe, end);
+
+				// Load new data with current symbol and appropriate time range
+				ta4jSeries = AnalysisOrchestrator.getUpdatedBarSeries(currentSymbol, start, end, null,
+						!useCustomTimeRange, timeframe, 500, dataProvider);
+				// dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
 			}
 
-			// Load new data with current symbol and appropriate time range
-			ta4jSeries = dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
+			//SwingUtilities.invokeLater(() -> {
+				// Convert and calculate indicators
+				convertToOHLCSeries(ta4jSeries);
+				calculateIndicators();
 
-			// Convert and calculate indicators
-			convertToOHLCSeries(ta4jSeries);
-			calculateIndicators();
+				// Completely recreate the charts instead of trying to update existing ones
+				createCharts();
 
-			// Completely recreate the charts instead of trying to update existing ones
-			createCharts();
+				// Rebuild the UI layout
+				getContentPane().removeAll();
+				setupLayout();
 
-			// Rebuild the UI layout
-			getContentPane().removeAll();
-			setupLayout();
+				// Force UI update
+				revalidate();
+				repaint();
 
-			// Force UI update
-			revalidate();
-			repaint();
+				// Update window title
+				updateWindowTitle();
 
-			// Update window title
-			updateWindowTitle();
+				logConsumer.accept("Successfully loaded data for " + currentSymbol + " with timeframe: " + timeframe);
 
-			logConsumer.accept("Successfully loaded data for " + currentSymbol + " with timeframe: " + timeframe);
+			//});
 		} catch (Exception e) {
 			logConsumer.accept("Error reloading data for " + currentSymbol + ": " + e.getMessage());
 			e.printStackTrace();
@@ -1276,287 +1299,300 @@ public class SymbolChartWindow extends JFrame {
 			return endDateTime;
 		}
 	}
-	
+
 	// Add this as a separate class or as a static inner class
 	public static class TimeRangeConfigBuilder {
-	    private boolean useCurrentTime = true;
-	    private ZonedDateTime startDateTime;
-	    private ZonedDateTime endDateTime;
-	    
-	    public TimeRangeConfigBuilder useCurrentTime() {
-	        this.useCurrentTime = true;
-	        return this;
-	    }
-	    
-	    public TimeRangeConfigBuilder useCustomRange(ZonedDateTime start, ZonedDateTime end) {
-	        this.useCurrentTime = false;
-	        this.startDateTime = start;
-	        this.endDateTime = end;
-	        return this;
-	    }
-	    
-	    public TimeRangeConfig build() {
-	        return new TimeRangeConfig(useCurrentTime, startDateTime, endDateTime);
-	    }
-	}
-	
-	private class TimeRangeConfigDialog extends JDialog {
-	    private boolean confirmed = false;
-	    private TimeRangeConfig timeRangeConfig;
-	    
-	    private JRadioButton currentTimeRadio;
-	    private JRadioButton customRangeRadio;
-	    private JPanel customRangePanel;
-	    private JXDatePicker startDatePicker;
-	    private JXDatePicker endDatePicker;
-	    private JComboBox<String> startHourCombo;
-	    private JComboBox<String> startMinuteCombo;
-	    private JComboBox<String> endHourCombo;
-	    private JComboBox<String> endMinuteCombo;
-	    private JButton okButton;
-	    private JButton cancelButton;
-	    
-	    public TimeRangeConfigDialog(JFrame parent, TimeRangeConfig currentConfig) {
-	        super(parent, "Configure Time Range", true);
-	        
-	        // Initialize all components first
-	        initializeComponents();
-	        
-	        // Then set the values based on current config
-	        setCurrentConfig(currentConfig);
-	        
-	        setupLayout();
-	        setSize(450, 350);
-	        setLocationRelativeTo(parent);
-	    }
-	    
-	    private void initializeComponents() {
-	        // Initialize date pickers first
-	        startDatePicker = new JXDatePicker();
-	        endDatePicker = new JXDatePicker();
-	        
-	        // Set date formats
-	        startDatePicker.setFormats(new SimpleDateFormat("MM/dd/yyyy"));
-	        endDatePicker.setFormats(new SimpleDateFormat("MM/dd/yyyy"));
-	        
-	        // Set default dates
-	        startDatePicker.setDate(new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000)); // yesterday
-	        endDatePicker.setDate(new Date()); // today
-	        
-	        // Time combos
-	        String[] hours = new String[24];
-	        String[] minutes = new String[60];
-	        for (int i = 0; i < 24; i++) hours[i] = String.format("%02d", i);
-	        for (int i = 0; i < 60; i++) minutes[i] = String.format("%02d", i);
-	        
-	        startHourCombo = new JComboBox<>(hours);
-	        startMinuteCombo = new JComboBox<>(minutes);
-	        endHourCombo = new JComboBox<>(hours);
-	        endMinuteCombo = new JComboBox<>(minutes);
-	        
-	        // Set default times (market hours)
-	        startHourCombo.setSelectedItem("09");
-	        startMinuteCombo.setSelectedItem("30");
-	        endHourCombo.setSelectedItem("16");
-	        endMinuteCombo.setSelectedItem("00");
-	        
-	        // Radio buttons - default to current time
-	        currentTimeRadio = new JRadioButton("Current Time Range", true);
-	        customRangeRadio = new JRadioButton("Custom Time Range", false);
-	        
-	        ButtonGroup group = new ButtonGroup();
-	        group.add(currentTimeRadio);
-	        group.add(customRangeRadio);
-	        
-	        // Custom range panel
-	        customRangePanel = new JPanel(new GridBagLayout());
-	        customRangePanel.setBorder(BorderFactory.createTitledBorder("Custom Range"));
-	        
-	        // Buttons
-	        okButton = new JButton("OK");
-	        cancelButton = new JButton("Cancel");
-	        
-	        // Event listeners
-	        currentTimeRadio.addActionListener(e -> updateCustomRangeEnabled());
-	        customRangeRadio.addActionListener(e -> updateCustomRangeEnabled());
-	        
-	        okButton.addActionListener(e -> {
-	            confirmed = true;
-	            timeRangeConfig = createTimeRangeConfig();
-	            dispose();
-	        });
-	        
-	        cancelButton.addActionListener(e -> dispose());
-	        
-	        // Initial state
-	        updateCustomRangeEnabled();
-	    }
-	    
-	    private void setCurrentConfig(TimeRangeConfig currentConfig) {
-	        if (currentConfig != null) {
-	            // Set radio buttons based on current config
-	            currentTimeRadio.setSelected(currentConfig.isUseCurrentTime());
-	            customRangeRadio.setSelected(!currentConfig.isUseCurrentTime());
-	            
-	            // Set date and time values if custom range was previously used
-	            if (!currentConfig.isUseCurrentTime()) {
-	                if (currentConfig.getStartDateTime() != null) {
-	                    startDatePicker.setDate(Date.from(currentConfig.getStartDateTime().toInstant()));
-	                    startHourCombo.setSelectedItem(String.format("%02d", currentConfig.getStartDateTime().getHour()));
-	                    startMinuteCombo.setSelectedItem(String.format("%02d", currentConfig.getStartDateTime().getMinute()));
-	                }
-	                
-	                if (currentConfig.getEndDateTime() != null) {
-	                    endDatePicker.setDate(Date.from(currentConfig.getEndDateTime().toInstant()));
-	                    endHourCombo.setSelectedItem(String.format("%02d", currentConfig.getEndDateTime().getHour()));
-	                    endMinuteCombo.setSelectedItem(String.format("%02d", currentConfig.getEndDateTime().getMinute()));
-	                }
-	            }
-	        }
-	        
-	        // Update the enabled state based on the radio buttons
-	        updateCustomRangeEnabled();
-	    }
-	    
-	    private void updateCustomRangeEnabled() {
-	        boolean enabled = customRangeRadio.isSelected();
-	        customRangePanel.setEnabled(enabled);
-	        startDatePicker.setEnabled(enabled);
-	        endDatePicker.setEnabled(enabled);
-	        startHourCombo.setEnabled(enabled);
-	        startMinuteCombo.setEnabled(enabled);
-	        endHourCombo.setEnabled(enabled);
-	        endMinuteCombo.setEnabled(enabled);
-	    }
-	    
-	    private TimeRangeConfig createTimeRangeConfig() {
-	        if (currentTimeRadio.isSelected()) {
-	            return new TimeRangeConfig(true, null, null);
-	        } else {
-	            try {
-	                // Get start date and time
-	                Date startDate = startDatePicker.getDate();
-	                String startHour = (String) startHourCombo.getSelectedItem();
-	                String startMinute = (String) startMinuteCombo.getSelectedItem();
-	                
-	                // Get end date and time
-	                Date endDate = endDatePicker.getDate();
-	                String endHour = (String) endHourCombo.getSelectedItem();
-	                String endMinute = (String) endMinuteCombo.getSelectedItem();
-	                
-	                // Create ZonedDateTime objects
-	                ZonedDateTime startDateTime = ZonedDateTime.ofInstant(startDate.toInstant(), ZoneOffset.UTC)
-	                        .withHour(Integer.parseInt(startHour))
-	                        .withMinute(Integer.parseInt(startMinute))
-	                        .withSecond(0)
-	                        .withNano(0);
-	                
-	                ZonedDateTime endDateTime = ZonedDateTime.ofInstant(endDate.toInstant(), ZoneOffset.UTC)
-	                        .withHour(Integer.parseInt(endHour))
-	                        .withMinute(Integer.parseInt(endMinute))
-	                        .withSecond(0)
-	                        .withNano(0);
-	                
-	                return new TimeRangeConfig(false, startDateTime, endDateTime);
-	            } catch (Exception e) {
-	                logConsumer.accept("Error parsing time range: " + e.getMessage());
-	                return new TimeRangeConfig(true, null, null); // Fallback to current time
-	            }
-	        }
-	    }
-	    
-	    private void setupLayout() {
-	        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
-	        mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-	        
-	        // Radio buttons panel
-	        JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-	        radioPanel.add(currentTimeRadio);
-	        radioPanel.add(customRangeRadio);
-	        
-	        mainPanel.add(radioPanel, BorderLayout.NORTH);
-	        
-	        // Setup custom range panel with GridBagLayout for better alignment
-	        setupCustomRangePanel();
-	        mainPanel.add(customRangePanel, BorderLayout.CENTER);
-	        
-	        // Button panel
-	        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-	        buttonPanel.add(okButton);
-	        buttonPanel.add(cancelButton);
-	        
-	        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
-	        
-	        setContentPane(mainPanel);
-	    }
-	    
-	    private void setupCustomRangePanel() {
-	        GridBagConstraints gbc = new GridBagConstraints();
-	        gbc.insets = new Insets(5, 5, 5, 5);
-	        gbc.fill = GridBagConstraints.HORIZONTAL;
-	        gbc.anchor = GridBagConstraints.WEST;
-	        
-	        // Start Date row
-	        gbc.gridx = 0; gbc.gridy = 0;
-	        gbc.gridwidth = 1;
-	        customRangePanel.add(new JLabel("Start Date:"), gbc);
-	        
-	        gbc.gridx = 1; gbc.gridy = 0;
-	        gbc.gridwidth = 2;
-	        customRangePanel.add(startDatePicker, gbc);
-	        
-	        // Start Time row
-	        gbc.gridx = 0; gbc.gridy = 1;
-	        gbc.gridwidth = 1;
-	        customRangePanel.add(new JLabel("Start Time:"), gbc);
-	        
-	        gbc.gridx = 1; gbc.gridy = 1;
-	        gbc.gridwidth = 2;
-	        JPanel startTimePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-	        startTimePanel.add(startHourCombo);
-	        startTimePanel.add(new JLabel(":"));
-	        startTimePanel.add(startMinuteCombo);
-	        customRangePanel.add(startTimePanel, gbc);
-	        
-	        // End Date row
-	        gbc.gridx = 0; gbc.gridy = 2;
-	        gbc.gridwidth = 1;
-	        customRangePanel.add(new JLabel("End Date:"), gbc);
-	        
-	        gbc.gridx = 1; gbc.gridy = 2;
-	        gbc.gridwidth = 2;
-	        customRangePanel.add(endDatePicker, gbc);
-	        
-	        // End Time row
-	        gbc.gridx = 0; gbc.gridy = 3;
-	        gbc.gridwidth = 1;
-	        customRangePanel.add(new JLabel("End Time:"), gbc);
-	        
-	        gbc.gridx = 1; gbc.gridy = 3;
-	        gbc.gridwidth = 2;
-	        JPanel endTimePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
-	        endTimePanel.add(endHourCombo);
-	        endTimePanel.add(new JLabel(":"));
-	        endTimePanel.add(endMinuteCombo);
-	        customRangePanel.add(endTimePanel, gbc);
-	    }
-	    
-	    public boolean isConfirmed() { return confirmed; }
-	    public TimeRangeConfig getTimeRangeConfig() { return timeRangeConfig; }
+		private boolean useCurrentTime = true;
+		private ZonedDateTime startDateTime;
+		private ZonedDateTime endDateTime;
+
+		public TimeRangeConfigBuilder useCurrentTime() {
+			this.useCurrentTime = true;
+			return this;
+		}
+
+		public TimeRangeConfigBuilder useCustomRange(ZonedDateTime start, ZonedDateTime end) {
+			this.useCurrentTime = false;
+			this.startDateTime = start;
+			this.endDateTime = end;
+			return this;
+		}
+
+		public TimeRangeConfig build() {
+			return new TimeRangeConfig(useCurrentTime, startDateTime, endDateTime);
+		}
 	}
 
-	
+	private class TimeRangeConfigDialog extends JDialog {
+		private boolean confirmed = false;
+		private TimeRangeConfig timeRangeConfig;
+
+		private JRadioButton currentTimeRadio;
+		private JRadioButton customRangeRadio;
+		private JPanel customRangePanel;
+		private JXDatePicker startDatePicker;
+		private JXDatePicker endDatePicker;
+		private JComboBox<String> startHourCombo;
+		private JComboBox<String> startMinuteCombo;
+		private JComboBox<String> endHourCombo;
+		private JComboBox<String> endMinuteCombo;
+		private JButton okButton;
+		private JButton cancelButton;
+
+		public TimeRangeConfigDialog(JFrame parent, TimeRangeConfig currentConfig) {
+			super(parent, "Configure Time Range", true);
+
+			// Initialize all components first
+			initializeComponents();
+
+			// Then set the values based on current config
+			setCurrentConfig(currentConfig);
+
+			setupLayout();
+			setSize(450, 350);
+			setLocationRelativeTo(parent);
+		}
+
+		private void initializeComponents() {
+			// Initialize date pickers first
+			startDatePicker = new JXDatePicker();
+			endDatePicker = new JXDatePicker();
+
+			// Set date formats
+			startDatePicker.setFormats(new SimpleDateFormat("MM/dd/yyyy"));
+			endDatePicker.setFormats(new SimpleDateFormat("MM/dd/yyyy"));
+
+			// Set default dates
+			startDatePicker.setDate(new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000)); // yesterday
+			endDatePicker.setDate(new Date()); // today
+
+			// Time combos
+			String[] hours = new String[24];
+			String[] minutes = new String[60];
+			for (int i = 0; i < 24; i++)
+				hours[i] = String.format("%02d", i);
+			for (int i = 0; i < 60; i++)
+				minutes[i] = String.format("%02d", i);
+
+			startHourCombo = new JComboBox<>(hours);
+			startMinuteCombo = new JComboBox<>(minutes);
+			endHourCombo = new JComboBox<>(hours);
+			endMinuteCombo = new JComboBox<>(minutes);
+
+			// Set default times (market hours)
+			startHourCombo.setSelectedItem("09");
+			startMinuteCombo.setSelectedItem("30");
+			endHourCombo.setSelectedItem("16");
+			endMinuteCombo.setSelectedItem("00");
+
+			// Radio buttons - default to current time
+			currentTimeRadio = new JRadioButton("Current Time Range", true);
+			customRangeRadio = new JRadioButton("Custom Time Range", false);
+
+			ButtonGroup group = new ButtonGroup();
+			group.add(currentTimeRadio);
+			group.add(customRangeRadio);
+
+			// Custom range panel
+			customRangePanel = new JPanel(new GridBagLayout());
+			customRangePanel.setBorder(BorderFactory.createTitledBorder("Custom Range"));
+
+			// Buttons
+			okButton = new JButton("OK");
+			cancelButton = new JButton("Cancel");
+
+			// Event listeners
+			currentTimeRadio.addActionListener(e -> updateCustomRangeEnabled());
+			customRangeRadio.addActionListener(e -> updateCustomRangeEnabled());
+
+			okButton.addActionListener(e -> {
+				confirmed = true;
+				timeRangeConfig = createTimeRangeConfig();
+				dispose();
+			});
+
+			cancelButton.addActionListener(e -> dispose());
+
+			// Initial state
+			updateCustomRangeEnabled();
+		}
+
+		private void setCurrentConfig(TimeRangeConfig currentConfig) {
+			if (currentConfig != null) {
+				// Set radio buttons based on current config
+				currentTimeRadio.setSelected(currentConfig.isUseCurrentTime());
+				customRangeRadio.setSelected(!currentConfig.isUseCurrentTime());
+
+				// Set date and time values if custom range was previously used
+				if (!currentConfig.isUseCurrentTime()) {
+					if (currentConfig.getStartDateTime() != null) {
+						startDatePicker.setDate(Date.from(currentConfig.getStartDateTime().toInstant()));
+						startHourCombo
+								.setSelectedItem(String.format("%02d", currentConfig.getStartDateTime().getHour()));
+						startMinuteCombo
+								.setSelectedItem(String.format("%02d", currentConfig.getStartDateTime().getMinute()));
+					}
+
+					if (currentConfig.getEndDateTime() != null) {
+						endDatePicker.setDate(Date.from(currentConfig.getEndDateTime().toInstant()));
+						endHourCombo.setSelectedItem(String.format("%02d", currentConfig.getEndDateTime().getHour()));
+						endMinuteCombo
+								.setSelectedItem(String.format("%02d", currentConfig.getEndDateTime().getMinute()));
+					}
+				}
+			}
+
+			// Update the enabled state based on the radio buttons
+			updateCustomRangeEnabled();
+		}
+
+		private void updateCustomRangeEnabled() {
+			boolean enabled = customRangeRadio.isSelected();
+			customRangePanel.setEnabled(enabled);
+			startDatePicker.setEnabled(enabled);
+			endDatePicker.setEnabled(enabled);
+			startHourCombo.setEnabled(enabled);
+			startMinuteCombo.setEnabled(enabled);
+			endHourCombo.setEnabled(enabled);
+			endMinuteCombo.setEnabled(enabled);
+		}
+
+		private TimeRangeConfig createTimeRangeConfig() {
+			if (currentTimeRadio.isSelected()) {
+				return new TimeRangeConfig(true, null, null);
+			} else {
+				try {
+					// Get start date and time
+					Date startDate = startDatePicker.getDate();
+					String startHour = (String) startHourCombo.getSelectedItem();
+					String startMinute = (String) startMinuteCombo.getSelectedItem();
+
+					// Get end date and time
+					Date endDate = endDatePicker.getDate();
+					String endHour = (String) endHourCombo.getSelectedItem();
+					String endMinute = (String) endMinuteCombo.getSelectedItem();
+
+					// Create ZonedDateTime objects
+					ZonedDateTime startDateTime = ZonedDateTime.ofInstant(startDate.toInstant(), ZoneId.systemDefault())
+							.withHour(Integer.parseInt(startHour)).withMinute(Integer.parseInt(startMinute))
+							.withSecond(0).withNano(0);
+
+					ZonedDateTime endDateTime = ZonedDateTime.ofInstant(endDate.toInstant(), ZoneId.systemDefault())
+							.withHour(Integer.parseInt(endHour)).withMinute(Integer.parseInt(endMinute)).withSecond(0)
+							.withNano(0);
+
+					return new TimeRangeConfig(false, startDateTime, endDateTime);
+				} catch (Exception e) {
+					logConsumer.accept("Error parsing time range: " + e.getMessage());
+					return new TimeRangeConfig(true, null, null); // Fallback to current time
+				}
+			}
+		}
+
+		private void setupLayout() {
+			JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+			mainPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+			// Radio buttons panel
+			JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+			radioPanel.add(currentTimeRadio);
+			radioPanel.add(customRangeRadio);
+
+			mainPanel.add(radioPanel, BorderLayout.NORTH);
+
+			// Setup custom range panel with GridBagLayout for better alignment
+			setupCustomRangePanel();
+			mainPanel.add(customRangePanel, BorderLayout.CENTER);
+
+			// Button panel
+			JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+			buttonPanel.add(okButton);
+			buttonPanel.add(cancelButton);
+
+			mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+			setContentPane(mainPanel);
+		}
+
+		private void setupCustomRangePanel() {
+			GridBagConstraints gbc = new GridBagConstraints();
+			gbc.insets = new Insets(5, 5, 5, 5);
+			gbc.fill = GridBagConstraints.HORIZONTAL;
+			gbc.anchor = GridBagConstraints.WEST;
+
+			// Start Date row
+			gbc.gridx = 0;
+			gbc.gridy = 0;
+			gbc.gridwidth = 1;
+			customRangePanel.add(new JLabel("Start Date:"), gbc);
+
+			gbc.gridx = 1;
+			gbc.gridy = 0;
+			gbc.gridwidth = 2;
+			customRangePanel.add(startDatePicker, gbc);
+
+			// Start Time row
+			gbc.gridx = 0;
+			gbc.gridy = 1;
+			gbc.gridwidth = 1;
+			customRangePanel.add(new JLabel("Start Time:"), gbc);
+
+			gbc.gridx = 1;
+			gbc.gridy = 1;
+			gbc.gridwidth = 2;
+			JPanel startTimePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+			startTimePanel.add(startHourCombo);
+			startTimePanel.add(new JLabel(":"));
+			startTimePanel.add(startMinuteCombo);
+			customRangePanel.add(startTimePanel, gbc);
+
+			// End Date row
+			gbc.gridx = 0;
+			gbc.gridy = 2;
+			gbc.gridwidth = 1;
+			customRangePanel.add(new JLabel("End Date:"), gbc);
+
+			gbc.gridx = 1;
+			gbc.gridy = 2;
+			gbc.gridwidth = 2;
+			customRangePanel.add(endDatePicker, gbc);
+
+			// End Time row
+			gbc.gridx = 0;
+			gbc.gridy = 3;
+			gbc.gridwidth = 1;
+			customRangePanel.add(new JLabel("End Time:"), gbc);
+
+			gbc.gridx = 1;
+			gbc.gridy = 3;
+			gbc.gridwidth = 2;
+			JPanel endTimePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+			endTimePanel.add(endHourCombo);
+			endTimePanel.add(new JLabel(":"));
+			endTimePanel.add(endMinuteCombo);
+			customRangePanel.add(endTimePanel, gbc);
+		}
+
+		public boolean isConfirmed() {
+			return confirmed;
+		}
+
+		public TimeRangeConfig getTimeRangeConfig() {
+			return timeRangeConfig;
+		}
+	}
+
 	private void showTimeRangeConfigDialog() {
-	    TimeRangeConfigDialog dialog = new TimeRangeConfigDialog(this, currentTimeRangeConfig);
-	    dialog.setVisible(true);
-	    
-	    if (dialog.isConfirmed()) {
-	        TimeRangeConfig config = dialog.getTimeRangeConfig();
-	        applyTimeRangeConfig(config);
-	        // Store the configuration for next time
-	        this.currentTimeRangeConfig = config;
-	        this.useCustomTimeRange = !config.isUseCurrentTime();
-	    }
+		TimeRangeConfigDialog dialog = new TimeRangeConfigDialog(this, currentTimeRangeConfig);
+		dialog.setVisible(true);
+
+		if (dialog.isConfirmed()) {
+			TimeRangeConfig config = dialog.getTimeRangeConfig();
+			applyTimeRangeConfig(config);
+			// Store the configuration for next time
+			this.currentTimeRangeConfig = config;
+			this.useCustomTimeRange = !config.isUseCurrentTime();
+		}
 	}
 
 	private void applyTimeRangeConfig(TimeRangeConfig config) {
@@ -1589,28 +1625,31 @@ public class SymbolChartWindow extends JFrame {
 				ohlcSeries.clear();
 				heikenAshiSeries.clear();
 				volumeSeries.clear();
-				indicatorSeriesMap.clear();
+				//indicatorSeriesMap.clear();
 
 				// Load data with custom time range
 				String timeframe = (String) timeframeComboBox.getSelectedItem();
-				
-				start = dataProvider.calculateDefaultStartTime(timeframe, start, end);
-				
-				ta4jSeries = dataProvider.getHistoricalData(currentSymbol, timeframe, 500, start, end);
 
-				// Convert and calculate indicators
-				convertToOHLCSeries(ta4jSeries);
-				calculateIndicators();
+				start = dataProvider.calculateDefaultStartTime(timeframe, end);
 
-				// Recreate charts
-				createCharts();
+				ta4jSeries = AnalysisOrchestrator.getUpdatedBarSeries(currentSymbol, start, end, null,
+						!useCustomTimeRange, timeframe, 1000, dataProvider);
 
-				// Rebuild UI
-				getContentPane().removeAll();
-				setupLayout();
-				revalidate();
-				repaint();
+				SwingUtilities.invokeLater(() -> {
 
+					// Convert and calculate indicators
+					convertToOHLCSeries(ta4jSeries);
+					calculateIndicators();
+
+					// Recreate charts
+					createCharts();
+
+					// Rebuild UI
+					getContentPane().removeAll();
+					setupLayout();
+					revalidate();
+					repaint();
+				});
 				logConsumer.accept(
 						"Loaded data for custom time range: " + start.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
 								+ " to " + end.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));

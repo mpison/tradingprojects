@@ -1,5 +1,6 @@
 package com.quantlabs.stockApp.service;
 
+import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
@@ -19,6 +20,8 @@ import com.quantlabs.stockApp.indicator.management.IndicatorsManagementApp;
 import com.quantlabs.stockApp.indicator.strategy.AbstractIndicatorStrategy;
 import com.quantlabs.stockApp.model.PriceData;
 import com.quantlabs.stockApp.reports.AnalysisResult;
+import com.quantlabs.stockApp.utils.timeseries.BarAggregator;
+import com.quantlabs.stockApp.utils.timeseries.Timeframe;
 
 public class AnalysisOrchestrator {
 
@@ -33,87 +36,152 @@ public class AnalysisOrchestrator {
 		this.dataProvider = dataProvider;
 	}
 
-	public static LinkedHashMap<String, AnalysisResult> analyzeSymbol(String symbol, Set<String> timeframes,
-			Set<String> indicatorsToCalculate, boolean uptrendFilterEnabled,
+	public static LinkedHashMap<String, AnalysisResult> analyzeSymbol(String symbol, boolean isCurrentTimeRanged,
+			Set<String> timeframes, Set<String> indicatorsToCalculate, boolean uptrendFilterEnabled,
 			Map<String, JComboBox<String>> indicatorTimeRangeCombos,
 			Map<String, JComboBox<String>> indicatorSessionCombos, Map<String, JTextField> indicatorIndexCounterFields,
 			Map<String, Map<String, Integer>> timeframeIndexRanges, String currentDataSource,
-			Map<String, Set<CustomIndicator>> customIndicatorCombinations, ZonedDateTime startTime, ZonedDateTime endTime) { // Change to Set<CustomIndicator>
+			Map<String, Set<CustomIndicator>> customIndicatorCombinations, ZonedDateTime startTime,
+			ZonedDateTime endTime) { // Change to Set<CustomIndicator>
 
 		LinkedHashMap<String, AnalysisResult> results = new LinkedHashMap<>();
 		String previousTimeframeConsensusStatus = null;
 
-		for (String timeframe : timeframes) {
-			boolean hasStandardIndicators = !indicatorsToCalculate.isEmpty();
-			boolean hasCustomIndicators = customIndicatorCombinations != null
-					&& customIndicatorCombinations.containsKey(timeframe)
-					&& !customIndicatorCombinations.get(timeframe).isEmpty();
+		try {
+			BarSeries oneMinBarSeries = dataProvider.getHistoricalData(symbol, "1Min", 1000, startTime, endTime);
+			;
 
-			if (hasStandardIndicators || hasCustomIndicators) {
-				try {
-					// Apply uptrend filter if enabled
-					if (uptrendFilterEnabled && previousTimeframeConsensusStatus != null) {
-						if (previousTimeframeConsensusStatus == null
-								|| !isBullishStatus(previousTimeframeConsensusStatus)) {
-							continue;
-						}
-					}
+			// if(!isCurrentTimeRanged) {
+			// Get historical data for 1 minute, to fetch accurate tf last bar
+			// ZonedDateTime endTime = dataProvider.getCurrentTime();
+			startTime = dataProvider.calculateDefaultStartTime("1Min", endTime);
 
-					// Get historical data
-					//ZonedDateTime endTime = dataProvider.getCurrentTime();
-					startTime = dataProvider.calculateDefaultStartTime(timeframe, endTime);
+			/*
+			 * try { oneMinBarSeries = dataProvider.getHistoricalData(symbol, "1Min", 1000,
+			 * startTime, endTime); } catch (IOException e) { // TODO Auto-generated catch
+			 * block e.printStackTrace(); }
+			 */
 
-					BarSeries series = dataProvider.getHistoricalData(symbol, timeframe, 1000, startTime, endTime);
+			// }
 
-					String timeRange = indicatorTimeRangeCombos.get(timeframe).getSelectedItem().toString();
-					String session = indicatorSessionCombos.get(timeframe).getSelectedItem().toString();
-					String indexCounterField = indicatorIndexCounterFields.get(timeframe).getText();
+			// for (String timeframe : timeframes) {
+			timeframes.parallelStream().forEach(timeframe -> {
+				boolean hasStandardIndicators = !indicatorsToCalculate.isEmpty();
+				boolean hasCustomIndicators = customIndicatorCombinations != null
+						&& customIndicatorCombinations.containsKey(timeframe)
+						&& !customIndicatorCombinations.get(timeframe).isEmpty();
 
-					int indexCounter;
+				if (hasStandardIndicators || hasCustomIndicators) {
 					try {
-						indexCounter = Integer.parseInt(indexCounterField);
-					} catch (NumberFormatException e) {
-						indexCounter = 5; // Default value
+						// Apply uptrend filter if enabled
+						/*if (uptrendFilterEnabled && previousTimeframeConsensusStatus != null) {
+							if (previousTimeframeConsensusStatus == null
+									|| !isBullishStatus(previousTimeframeConsensusStatus)) {
+								// continue;
+								return;
+							}
+						}*/
+
+						// Get historical data
+						// ZonedDateTime endTime = dataProvider.getCurrentTime();
+						ZonedDateTime startTime2 = dataProvider.calculateDefaultStartTime(timeframe, endTime);
+
+						BarSeries series = getUpdatedBarSeries(symbol, startTime2, endTime, oneMinBarSeries,
+								isCurrentTimeRanged, timeframe, 1000, dataProvider);
+
+						String timeRange = indicatorTimeRangeCombos.get(timeframe).getSelectedItem().toString();
+						String session = indicatorSessionCombos.get(timeframe).getSelectedItem().toString();
+						String indexCounterField = indicatorIndexCounterFields.get(timeframe).getText();
+
+						int indexCounter;
+						try {
+							indexCounter = Integer.parseInt(indexCounterField);
+						} catch (NumberFormatException e) {
+							indexCounter = 5; // Default value
+						}
+
+						// Get custom indicators for this timeframe
+						Set<CustomIndicator> timeframeCustomIndicators = null;
+						if (hasCustomIndicators) {
+							timeframeCustomIndicators = customIndicatorCombinations.get(timeframe);
+						}
+
+						// Perform technical analysis with both standard and custom indicators
+						AnalysisResult result = TechnicalAnalysisService.performTechnicalAnalysis(series,
+								indicatorsToCalculate, timeframe, symbol, timeRange, session, indexCounter,
+								timeframeIndexRanges, currentDataSource, timeframeCustomIndicators);
+
+						result.setBarSeries(series);
+
+						results.put(timeframe, result);
+
+						/*
+						 * if (uptrendFilterEnabled) { previousTimeframeConsensusStatus =
+						 * determineConsensusStatus(result, indicatorsToCalculate); }
+						 */
+
+					} catch (Exception e) {
+						// Handle analysis errors
+						System.out.println(e);
 					}
-
-					// Get custom indicators for this timeframe
-					Set<CustomIndicator> timeframeCustomIndicators = null;
-					if (hasCustomIndicators) {
-						timeframeCustomIndicators = customIndicatorCombinations.get(timeframe);
-					}
-
-					// Perform technical analysis with both standard and custom indicators
-					AnalysisResult result = TechnicalAnalysisService.performTechnicalAnalysis(series,
-							indicatorsToCalculate, timeframe, symbol, timeRange, session, indexCounter,
-							timeframeIndexRanges, currentDataSource, timeframeCustomIndicators);
-					
-					result.setBarSeries(series);
-
-					results.put(timeframe, result);
-
-					if (uptrendFilterEnabled) {
-						previousTimeframeConsensusStatus = determineConsensusStatus(result, indicatorsToCalculate);
-					}
-
-				} catch (Exception e) {
-					// Handle analysis errors
-					System.out.println(e);
 				}
-			}
+			});
+
+		} catch (Exception e) {
+			System.out.println(e);
 		}
 
 		return results;
 	}
-	
-	
-	public LinkedHashMap<String, AnalysisResult> analyzeSymbolReComputeCustomIndicator(String symbol, Set<String> timeframes,
-			Set<String> indicatorsToCalculate, boolean uptrendFilterEnabled,
+
+	public static BarSeries getUpdatedBarSeries(String symbol, ZonedDateTime startTime, ZonedDateTime endTime,
+			BarSeries oneMinBarSeries, boolean isCurrentTimeRanged, String timeframe, int barCount,
+			StockDataProvider dataProvider2) throws IOException {
+		BarSeries series;
+		if (!isCurrentTimeRanged) {
+
+			if (oneMinBarSeries == null) {
+				// Get historical data for 1 minute, to fetch accurate tf last bar
+				// ZonedDateTime endTime = dataProvider.getCurrentTime();
+				ZonedDateTime startTime2 = dataProvider2.calculateDefaultStartTime("1Min", endTime);
+
+				try {
+					oneMinBarSeries = dataProvider2.getHistoricalData(symbol, "1Min", barCount, startTime2, endTime);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+			}
+
+			Timeframe toHigherTimeframe = Timeframe.fromAlias(timeframe);
+
+			if (toHigherTimeframe == Timeframe.ONE_MINUTE) {
+				series = oneMinBarSeries;
+			} else {
+				BarSeries higherSeries = dataProvider2.getHistoricalData(symbol, timeframe, barCount, startTime,
+						endTime);
+
+				series = BarAggregator.replaceLastBar(oneMinBarSeries, higherSeries, Timeframe.ONE_MINUTE,
+						toHigherTimeframe);
+			}
+
+		} else {
+			series = dataProvider2.getHistoricalData(symbol, timeframe, barCount, startTime, endTime);
+		}
+		return series;
+	}
+
+	public LinkedHashMap<String, AnalysisResult> analyzeSymbolReComputeCustomIndicator(String symbol,
+			Set<String> timeframes, Set<String> indicatorsToCalculate, boolean uptrendFilterEnabled,
 			Map<String, JComboBox<String>> indicatorTimeRangeCombos,
 			Map<String, JComboBox<String>> indicatorSessionCombos, Map<String, JTextField> indicatorIndexCounterFields,
 			Map<String, Map<String, Integer>> timeframeIndexRanges, String currentDataSource,
-			Map<String, Set<CustomIndicator>> customIndicatorCombinations, ZonedDateTime startTime, ZonedDateTime endTime, LinkedHashMap<String, AnalysisResult> results, PriceData priceData) { // Change to Set<CustomIndicator>
+			Map<String, Set<CustomIndicator>> customIndicatorCombinations, ZonedDateTime startTime,
+			ZonedDateTime endTime, LinkedHashMap<String, AnalysisResult> results, PriceData priceData) { // Change to
+																											// Set<CustomIndicator>
 
-		//LinkedHashMap<String, AnalysisResult> results = new LinkedHashMap<>();
+		// LinkedHashMap<String, AnalysisResult> results = new LinkedHashMap<>();
 		String previousTimeframeConsensusStatus = null;
 
 		for (String timeframe : timeframes) {
@@ -133,11 +201,12 @@ public class AnalysisOrchestrator {
 					}
 
 					// Get historical data
-					//ZonedDateTime endTime = dataProvider.getCurrentTime();
-					//startTime = dataProvider.calculateDefaultStartTime(timeframe, endTime);
+					// ZonedDateTime endTime = dataProvider.getCurrentTime();
+					// startTime = dataProvider.calculateDefaultStartTime(timeframe, endTime);
 
-					//BarSeries series = dataProvider.getHistoricalData(symbol, timeframe, 1000, startTime, endTime);
-					
+					// BarSeries series = dataProvider.getHistoricalData(symbol, timeframe, 1000,
+					// startTime, endTime);
+
 					BarSeries series = results.get(timeframe).getBarSeries();
 
 					String timeRange = indicatorTimeRangeCombos.get(timeframe).getSelectedItem().toString();
@@ -156,14 +225,15 @@ public class AnalysisOrchestrator {
 					if (hasCustomIndicators) {
 						timeframeCustomIndicators = customIndicatorCombinations.get(timeframe);
 					}
-					
+
 					AnalysisResult result = results.get(timeframe);
 
 					// Perform technical analysis with both standard and custom indicators
 					result = TechnicalAnalysisService.performTechnicalAnalysisForCustomIndicators(series,
 							indicatorsToCalculate, timeframe, symbol, timeRange, session, indexCounter,
-							timeframeIndexRanges, currentDataSource, timeframeCustomIndicators, result, priceData, this.indicatorsManagementApp);
-					
+							timeframeIndexRanges, currentDataSource, timeframeCustomIndicators, result, priceData,
+							this.indicatorsManagementApp);
+
 					result.setBarSeries(series);
 
 					results.put(timeframe, result);
@@ -183,36 +253,34 @@ public class AnalysisOrchestrator {
 	}
 
 	// Add this method to your AnalysisOrchestrator class
-	public Map<String, String> analyzeCustomIndicators(String symbol, String timeframe,
-			Set<CustomIndicator> customIndicators) {
-		Map<String, String> customIndicatorResults = new HashMap<>();
-
-		try {
-			// Get historical data with proper method calls
-			ZonedDateTime endTime = dataProvider.getCurrentTime();
-			ZonedDateTime startTime = dataProvider.calculateDefaultStartTime(timeframe, endTime);
-
-			BarSeries series = dataProvider.getHistoricalData(symbol, timeframe, 1000, startTime, endTime);
-
-			if (series == null || series.getBarCount() == 0) {
-				return customIndicatorResults;
-			}
-
-			CustomIndicatorCalculator calculator = new CustomIndicatorCalculator();
-
-			for (CustomIndicator customIndicator : customIndicators) {
-				String result = calculator.calculateCustomIndicator(customIndicator, series, timeframe, symbol)
-						.toString();
-				customIndicatorResults.put(customIndicator.getName(), result);
-			}
-
-		} catch (Exception e) {
-			// logToConsole("Error analyzing custom indicators for " + symbol + " " +
-			// timeframe + ": " + e.getMessage());
-		}
-
-		return customIndicatorResults;
-	}
+	/*
+	 * public Map<String, String> analyzeCustomIndicators(String symbol, String
+	 * timeframe, Set<CustomIndicator> customIndicators) { Map<String, String>
+	 * customIndicatorResults = new HashMap<>();
+	 * 
+	 * try { // Get historical data with proper method calls ZonedDateTime endTime =
+	 * dataProvider.getCurrentTime(); ZonedDateTime startTime =
+	 * dataProvider.calculateDefaultStartTime(timeframe, endTime);
+	 * 
+	 * BarSeries series = dataProvider.getHistoricalData(symbol, timeframe, 1000,
+	 * startTime, endTime);
+	 * 
+	 * if (series == null || series.getBarCount() == 0) { return
+	 * customIndicatorResults; }
+	 * 
+	 * CustomIndicatorCalculator calculator = new CustomIndicatorCalculator();
+	 * 
+	 * for (CustomIndicator customIndicator : customIndicators) { String result =
+	 * calculator.calculateCustomIndicator(customIndicator, series, timeframe,
+	 * symbol) .toString(); customIndicatorResults.put(customIndicator.getName(),
+	 * result); }
+	 * 
+	 * } catch (Exception e) { //
+	 * logToConsole("Error analyzing custom indicators for " + symbol + " " + //
+	 * timeframe + ": " + e.getMessage()); }
+	 * 
+	 * return customIndicatorResults; }
+	 */
 
 	private AnalysisResult performOrderedTechnicalAnalysis(BarSeries series, Set<String> indicatorsToCalculate,
 			String timeframe, String symbol) {
@@ -336,9 +404,9 @@ public class AnalysisOrchestrator {
 	}
 
 	public void setTimeRange(ZonedDateTime startTime, ZonedDateTime endTime) {
-        this.startTime = startTime;
-        this.endTime = endTime;
-    }
+		this.startTime = startTime;
+		this.endTime = endTime;
+	}
 
 	public void setIndicatorsManagementApp(IndicatorsManagementApp indicatorsManagementApp) {
 		this.indicatorsManagementApp = indicatorsManagementApp;

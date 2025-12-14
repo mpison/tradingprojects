@@ -4,8 +4,13 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
+import org.ta4j.core.indicators.CachedIndicator;
+import org.ta4j.core.indicators.EMAIndicator;
 import org.ta4j.core.indicators.SMAIndicator;
 import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
+import org.ta4j.core.indicators.helpers.HighPriceIndicator;
+import org.ta4j.core.indicators.helpers.LowPriceIndicator;
+import org.ta4j.core.indicators.helpers.OpenPriceIndicator;
 import org.ta4j.core.num.Num;
 
 import com.quantlabs.stockApp.core.indicators.targetvalue.MovingAverageTargetValue;
@@ -85,7 +90,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
         	
         	//ClosePriceIndicator closePrice = new ClosePriceIndicator(series);
     		
-    		int lastIndex = series.getBarCount() - 1;
+    		int lastIndex = endIndex;//series.getBarCount() - 1;
     		
     		Num close = series.getLastBar().getClosePrice();//closePrice.getValue(lastIndex);
     		
@@ -114,7 +119,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
                 return;
             }
             
-            MovingAverageTargetValue targetValue = new MovingAverageTargetValue(
+            MovingAverageTargetValue movingAveTargetValue = new MovingAverageTargetValue(
                 series, 
                 trendDirection,
                 ma1Period,
@@ -126,7 +131,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
             );
             
             if (endIndex >= 0) {
-                Num value = targetValue.getValue(endIndex);
+                Num value = movingAveTargetValue.getValue(endIndex);
                 if (value != null && !value.isNaN()) {
                     targetValueDouble = value.doubleValue();
                     //result.setMovingAverageTargetValue(targetValueDouble);
@@ -175,11 +180,13 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
             e.printStackTrace();
         }
         
-        double zscore = calculateZscore(series, result, endIndex);
+        double zscore = 0; 
         
         if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
         	result.setMovingAverageTargetValue(targetValueDouble);
-        	result.setMovingAverageTargetValueZscore(zscore);
+        	
+        	zscore = calculateZscore( series, result, endIndex);
+        	
         	result.setMovingAverageTargetValueStatus(displayValueForCustom);
 		} else {
 			
@@ -187,10 +194,15 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
 			
 			result.setCustomIndicatorValue(name+ "_MOVINGAVERAGETARGETVALUEStatus", displayValueForCustom);
 			
+			zscore = calculateZscore( series, result, endIndex);
+			
 			// save result in custom
 			result.setCustomIndicatorValue(name + "_MOVINGAVERAGETARGETVALUEZscore", String.valueOf(zscore));
 
 		}
+        
+        
+        result.setMovingAverageTargetValueZscore(zscore);
     }
     
     public Double getMovingAverageTargetValue(AnalysisResult result) {
@@ -215,8 +227,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
     public Double getMovingAverageTargetValuePercentile(AnalysisResult result) {
     	if (ma1Type == "SMA" && ma2Type == "SMA" && ma1Period == 20 && ma2Period == 50) {
         	return result.getMovingAverageTargetValuePercentile();        	
-		} else {
-			
+		} else {			
 			Double targetValue = Double.valueOf(result.getCustomIndicatorValue(getName()));
 			
 			Double price = result.getPrice();
@@ -466,7 +477,7 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
  // In MovingAverageTargetValueStrategy.java - Add this method
     @Override
     public double calculateZscore(BarSeries series, AnalysisResult result, int endIndex) {
-        Double targetValue = result.getMovingAverageTargetValue();
+        Double targetValue = getMovingAverageTargetValue(result); 
         double zscore = 0.0;
         
         if (targetValue != null && !Double.isNaN(targetValue)) {
@@ -480,17 +491,28 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
                     ma1Type, ma2Type
                 );
                 
-                double ma1Value = matv.getMa1Value(endIndex);
-                double ma2Value = matv.getMa2Value(endIndex);
+                double ma1Value = getCurrentMa1Value(series);//matv.getMa1Value(0);
+                double ma2Value = getCurrentMa2Value(series);//matv.getMa2Value(0);
                 
                 if (!Double.isNaN(ma1Value) && !Double.isNaN(ma2Value)) {
                     // Calculate the absolute difference between MA values
-                    double maValueDifference = Math.abs(ma1Value - ma2Value);
+                	
+                	double maDiffs = getAbsoluteCurrentMAsDifference(series);
                     
                     // If targetValue (which is MA1 - MA2) is less than the absolute MA value difference, set 100 points
-                    if (Math.abs(targetValue) <= maValueDifference) {
-                        zscore = MAX_ZSCORE; // 100 points
-                        zscore = normalizeScore(zscore, MAX_ZSCORE);
+                    if (Math.abs(targetValue) >= maDiffs) {
+                    	
+                    	//candle is going up
+                    	if(series.getLastBar().getClosePrice().doubleValue() > series.getLastBar().getOpenPrice().doubleValue()) {
+                    		zscore = MAX_ZSCORE; // 100 points
+                        	zscore = normalizeScore(zscore, MAX_ZSCORE);
+                    	}                   	
+                        	
+                    } else if(Math.abs(targetValue) < maDiffs){
+                    	if(series.getLastBar().getClosePrice().doubleValue() < series.getLastBar().getOpenPrice().doubleValue()) {
+                    		zscore = MAX_ZSCORE; // 100 points
+                        	zscore = normalizeScore(zscore, MAX_ZSCORE);
+                    	}   
                     }
                 }
                 
@@ -506,6 +528,95 @@ public class MovingAverageTargetValueStrategy extends AbstractIndicatorStrategy 
         return zscore;
     }
     
+    
+    public double getPercentileMADiffByIndex(BarSeries series, int index) {
+    	return (getAbsoluteMAsDifferenceByIndex(series, index) / getCurrentMa1ValueByIndex(series, index)) * 100;
+    }
+    
+    
+    private double getAbsoluteMAsDifferenceByIndex(BarSeries series, int index) {
+    	//TODO:    	
+    	return Math.abs(getCurrentMa1ValueByIndex(series, index) - getCurrentMa2ValueByIndex(series, index));
+    	
+    }
+    
+    
+    private double getCurrentMa1ValueByIndex(BarSeries series, int index) {
+		// Create the appropriate moving average based on price type and MA type
+		switch (ma1PriceType) {
+		case "OPEN":			
+			return series.getLastBar().getOpenPrice().doubleValue();
+
+		case "HIGH":
+			return series.getLastBar().getHighPrice().doubleValue();
+
+		case "LOW":
+			return series.getLastBar().getLowPrice().doubleValue();
+		case "CLOSE":
+		default:
+			return series.getLastBar().getClosePrice().doubleValue();
+		}
+	}
+    
+    private double getCurrentMa2ValueByIndex(BarSeries series, int index) {
+		// Create the appropriate moving average based on price type and MA type
+		switch (ma2PriceType) {
+		case "OPEN":			
+			return series.getLastBar().getOpenPrice().doubleValue();
+
+		case "HIGH":
+			return series.getLastBar().getHighPrice().doubleValue();
+
+		case "LOW":
+			return series.getLastBar().getLowPrice().doubleValue();
+		case "CLOSE":
+		default:
+			return series.getLastBar().getClosePrice().doubleValue();
+		}
+	}   
+    
+    
+    private double getAbsoluteCurrentMAsDifference(BarSeries series) {
+    	//TODO:    	
+    	return Math.abs(getCurrentMa1Value(series) - getCurrentMa2Value(series));
+    	
+    }
+    
+    
+    private double getCurrentMa1Value(BarSeries series) {
+		// Create the appropriate moving average based on price type and MA type
+		switch (ma1PriceType) {
+		case "OPEN":			
+			return series.getLastBar().getOpenPrice().doubleValue();
+
+		case "HIGH":
+			return series.getLastBar().getHighPrice().doubleValue();
+
+		case "LOW":
+			return series.getLastBar().getLowPrice().doubleValue();
+		case "CLOSE":
+		default:
+			return series.getLastBar().getClosePrice().doubleValue();
+		}
+	}
+    
+    private double getCurrentMa2Value(BarSeries series) {
+		// Create the appropriate moving average based on price type and MA type
+		switch (ma2PriceType) {
+		case "OPEN":			
+			return series.getLastBar().getOpenPrice().doubleValue();
+
+		case "HIGH":
+			return series.getLastBar().getHighPrice().doubleValue();
+
+		case "LOW":
+			return series.getLastBar().getLowPrice().doubleValue();
+		case "CLOSE":
+		default:
+			return series.getLastBar().getClosePrice().doubleValue();
+		}
+	}   
+   
     // Factory method to create from CustomIndicator
     public static MovingAverageTargetValueStrategy fromCustomIndicator(CustomIndicator customIndicator, ConsoleLogger logger) {
         return new MovingAverageTargetValueStrategy(customIndicator, logger);

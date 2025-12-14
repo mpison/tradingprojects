@@ -317,6 +317,19 @@ public class DashboardConfigManager {
             indexRangeMap.put("endIndex", indexRange.getInt("endIndex"));
             tfConfigMap.put("indexRange", indexRangeMap);
             
+            //Convert indexCounter
+            int indexCounter = tfConfig.getInt("indexCounter");
+            tfConfigMap.put("indexCounter", indexCounter);
+            
+            //Convert resistanceSettings
+            JSONObject resistanceSettings = tfConfig.getJSONObject("resistanceSettings");
+            Map<String, Object> resistanceSettingsMap = new HashMap<>();
+            if(resistanceSettings.has("indexCounter") && resistanceSettings.has("session") && resistanceSettings.has("timeRange")) {
+	            resistanceSettingsMap.put("indexCounter", resistanceSettings.getInt("indexCounter"));
+	            resistanceSettingsMap.put("session", resistanceSettings.getString("session"));
+	            resistanceSettingsMap.put("timeRange", resistanceSettings.getString("timeRange"));
+	            tfConfigMap.put("resistanceSettings", resistanceSettings);
+            }
             configMap.put(timeframe, tfConfigMap);
         }
         return configMap;

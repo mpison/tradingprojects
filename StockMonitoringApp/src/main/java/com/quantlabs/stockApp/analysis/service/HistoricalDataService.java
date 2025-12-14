@@ -49,7 +49,7 @@ public class HistoricalDataService {
                     }
                 } catch (Exception e) {
                     // Skip methods that can't be invoked or have issues
-                    System.out.println("Warning: Could not process method " + methodName + ": " + e.getMessage());
+                    //System.out.println("Warning: Could not process method " + methodName + ": " + e.getMessage());
                 }
             }
         }
@@ -75,7 +75,7 @@ public class HistoricalDataService {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Warning: Could not process AnalysisResult metrics: " + e.getMessage());
+            //System.out.println("Warning: Could not process AnalysisResult metrics: " + e.getMessage());
         }
     }
 
@@ -103,7 +103,7 @@ public class HistoricalDataService {
                     }
                 } catch (Exception e) {
                     // Skip methods that can't be invoked or have issues
-                    System.out.println("Warning: Could not process AnalysisResult method " + methodName + ": " + e.getMessage());
+                    //System.out.println("Warning: Could not process AnalysisResult method " + methodName + ": " + e.getMessage());
                 }
             }
         }
@@ -120,7 +120,7 @@ public class HistoricalDataService {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Warning: Could not process custom values: " + e.getMessage());
+            //System.out.println("Warning: Could not process custom values: " + e.getMessage());
         }
     }
     

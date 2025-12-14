@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 public interface MonteCarloDataSource {
-	Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end);
-    Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe);
+	Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, boolean useCustomTimeRange);
+    Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe, boolean useCustomTimeRange2);
     String getName();
     boolean isAvailable();
 }

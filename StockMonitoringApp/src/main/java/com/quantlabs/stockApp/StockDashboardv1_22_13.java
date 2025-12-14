@@ -200,6 +200,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	private JButton startLiveButton;
 	private JButton stopLiveButton;
 	private JButton toggleVisibilityButton;
+	
+	private boolean isProcessingUpdates = false;
 
 	private JCheckBox checkBullishCheckbox;
 	private VolumeAlertConfig volumeAlertConfig = new VolumeAlertConfig();
@@ -346,10 +348,10 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	private JMenu graphMenu;
 	private JMenuItem monteCarloMenuItem;
 	private JMenuItem monteCarloConfigMenuItem;
+
+	private final ExecutorService executorService = Executors
+			.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 	
-	
-	private final ExecutorService executorService = 
-		    Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
 	/*
 	 * public class FilterableTableModel extends DefaultTableModel { private final
@@ -717,6 +719,11 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 				timeRangeCombo.setSelectedItem(indicatorTimeRangeCombos.get(tf).getSelectedItem());
 			}
 
+			if (!indicatorIndexCounterFields.containsKey(tf)) {
+				JTextField indexCounterField = new JTextField("5", 3); // Default value 5
+				indicatorIndexCounterFields.put(tf, indexCounterField);
+			}
+
 			// Initialize session combobox
 			JComboBox<String> sessionCombo = new JComboBox<>(
 					new String[] { "all", "premarket", "standard", "postmarket" });
@@ -823,24 +830,24 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			}
 		}
 	}
-	
+
 	private void registerShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutting down thread pool...");
-            shutdownExecutorService();
-        }));
-    }
-    
-    private void shutdownExecutorService() {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
-                executorService.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executorService.shutdownNow();
-        }
-    }
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			System.out.println("Shutting down thread pool...");
+			shutdownExecutorService();
+		}));
+	}
+
+	private void shutdownExecutorService() {
+		executorService.shutdown();
+		try {
+			if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+				executorService.shutdownNow();
+			}
+		} catch (InterruptedException e) {
+			executorService.shutdownNow();
+		}
+	}
 
 	private void setupUI() {
 		// 1. Main window configuration
@@ -2194,6 +2201,38 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 								}
 							});
 						}
+
+						if (tfConfigMap.containsKey("indexCounter")) {
+							int indexCounter = (int) tfConfigMap.getOrDefault("indexCounter", 5);
+							timeframeIndexCounters.put(tf, indexCounter);
+						}
+						if (tfConfigMap.containsKey("resistanceSettings")) {
+							JSONObject resistanceObject = (JSONObject) tfConfigMap.get("resistanceSettings");
+							int intCounter = resistanceObject.getInt("indexCounter");
+							String session = resistanceObject.getString("session");
+							String timeRanged = resistanceObject.getString("timeRange");
+
+							if (indicatorTimeRangeCombos != null) {
+								// resistanceSettingsMap.put("timeRange", timeRangeCombo.getSelectedItem());
+
+								indicatorTimeRangeCombos.get(tf).setSelectedItem(timeRanged);
+							}
+							if (indicatorSessionCombos != null) {
+								// resistanceSettingsMap.put("session", sessionCombo.getSelectedItem());
+								indicatorSessionCombos.get(tf).setSelectedItem(session);
+							}
+							if (indicatorIndexCounterFields != null) {
+								if (indicatorIndexCounterFields.size() > 0) {
+									indicatorIndexCounterFields.get(tf).setText(String.valueOf(intCounter));
+								} else {
+									JTextField indexCounterField = new JTextField(String.valueOf(intCounter), 3); // Default
+																													// value
+																													// 5
+
+									indicatorIndexCounterFields.put(tf, indexCounterField);
+								}
+							}
+						}
 					}
 				}
 				logToConsole("✅ Loaded indicator configurations for " + timeframeIndicators.size() + " timeframes");
@@ -2385,8 +2424,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		}
 
 		try {
-			List<Map<String, Object>> customIndicatorsList = (List<Map<String, Object>>) config.
-					get("globalCustomIndicators");
+			List<Map<String, Object>> customIndicatorsList = (List<Map<String, Object>>) config
+					.get("globalCustomIndicators");
 			logToConsole("📥 Loading " + customIndicatorsList.size() + " global custom indicators from configuration");
 
 			Set<CustomIndicator> loadedCustomIndicators = new HashSet<>();
@@ -2558,7 +2597,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 						watchlists.put(watchlistName, new WatchlistData(symbols, primarySymbol));
 					}
 				}
-				
+
 				/*
 				 * if(config.containsKey("indicatorManagementConfig")) { Object
 				 * indicatorManagementConfig = (Object) config.get("indicatorManagementConfig");
@@ -4820,7 +4859,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 				"premarketHigh", "high", "postmarketHigh", "premarketLow", "low", "postmarketLow"));
 
 		return datacolumns.contains(colName) || colName.contains(BREAKOUT_COUNT_COLUMN_PATTERN)
-				|| colName.contains(ZSCORE_COLUMN_PATTERN) || colName.contains(MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT)
+				|| colName.contains(ZSCORE_COLUMN_PATTERN)
+				|| colName.contains(MovingAverageTargetValueStrategy.MATV_STRATEGY_NAME_CONSTANT)
 				|| colName.contains("VOLUMEMA") || colName.contains("Volume") || colName.contains("Percentile");
 	}
 
@@ -6020,54 +6060,74 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 
 		/** Option 2 **/
 		// Use CompletableFuture with controlled parallelism
-		/*int maxConcurrent = Math.min(visibleSymbols.size(), 20); // Max 8 concurrent calls
-		SwingUtilities.invokeLater(() -> {
-			List<CompletableFuture<Void>> futures = visibleSymbols.stream().map(symbol -> CompletableFuture.runAsync(
-					() -> processSymbolWithTimeRange(symbol, selectedDataSource, volumeProvider, startTime, endTime),
-					// processSymbol(symbol, selectedDataSource, volumeProvider),
-					Executors.newFixedThreadPool(maxConcurrent))).collect(Collectors.toList());
+		/*
+		 * int maxConcurrent = Math.min(visibleSymbols.size(), 20); // Max 8 concurrent
+		 * calls SwingUtilities.invokeLater(() -> { List<CompletableFuture<Void>>
+		 * futures = visibleSymbols.stream().map(symbol -> CompletableFuture.runAsync(
+		 * () -> processSymbolWithTimeRange(symbol, selectedDataSource, volumeProvider,
+		 * startTime, endTime), // processSymbol(symbol, selectedDataSource,
+		 * volumeProvider),
+		 * Executors.newFixedThreadPool(maxConcurrent))).collect(Collectors.toList());
+		 * 
+		 * // Wait for all completions
+		 * 
+		 * SwingUtilities.invokeLater(() -> { CompletableFuture<Void> allFutures =
+		 * CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+		 * allFutures.thenRun(() -> { SwingUtilities.invokeLater(() -> {
+		 * refreshZScoreColumns(); checkAllAlerts();
+		 * statusLabel.setText("Status: Refresh completed"); });
+		 * }).exceptionally(throwable -> {
+		 * logToConsole("Refresh completed with errors: " + throwable.getMessage());
+		 * return null; }); }); });
+		 */
+		// Submit all tasks
+		
+		long statNanoTime = System.nanoTime();
+		
+		List<CompletableFuture<Void>> futures = visibleSymbols.stream()
+				.map(symbol -> CompletableFuture.runAsync(() -> processSymbolWithTimeRange(symbol, selectedDataSource,
+						volumeProvider, startTime, endTime), executorService)) // Reuse the same pool
+				.collect(Collectors.toList());
 
-			// Wait for all completions		
-
+		// Handle completion
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRunAsync(() -> {
 			SwingUtilities.invokeLater(() -> {
-				CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-				allFutures.thenRun(() -> {
+				
+				long endNanoTime = System.nanoTime();
+				
+				long duration = endNanoTime - statNanoTime;
+				
+				System.out.println("CompletableFuture execution time "+ (duration / 1_000_000.0) + " milliseconds");
+				
+				logToConsole("CompletableFuture execution time for " + (duration / 1_000_000.0) + " milliseconds");
+				
+				
+				long statNanoTime2 = System.nanoTime();
+				
+				refreshZScoreColumns();
+				checkAllAlerts();
+				
+				duration = endNanoTime - statNanoTime2;
+				
+				System.out.println("CompletableFuture zscores execution time "+ (duration / 1_000_000.0) + " milliseconds");
+				
+				logToConsole("CompletableFuture zscores execution time for " + (duration / 1_000_000.0) + " milliseconds");
+				statusLabel.setText("Status: Refresh completed");
+				
+				isProcessingUpdates = false;
+			});
+		}) // Ensure UI updates on EDT
+				.exceptionally(throwable -> {
 					SwingUtilities.invokeLater(() -> {
-						refreshZScoreColumns();
-						checkAllAlerts();
-						statusLabel.setText("Status: Refresh completed");
+						logToConsole("Refresh completed with errors: " + throwable.getMessage());
+						statusLabel.setText("Status: Error during refresh");
 					});
-				}).exceptionally(throwable -> {
-					logToConsole("Refresh completed with errors: " + throwable.getMessage());
+					
+					isProcessingUpdates = false;
+					
 					return null;
 				});
-			});
-		});*/
-		 // Submit all tasks
-	    List<CompletableFuture<Void>> futures = visibleSymbols.stream()
-	        .map(symbol -> CompletableFuture.runAsync(
-	            () -> processSymbolWithTimeRange(symbol, selectedDataSource, 
-	                                            volumeProvider, startTime, endTime),
-	            executorService))  // Reuse the same pool
-	        .collect(Collectors.toList());
-	    
-	    // Handle completion
-	    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-	        .thenRunAsync(() -> {
-	        	SwingUtilities.invokeLater(() -> {
-		            refreshZScoreColumns();
-		            checkAllAlerts();
-		            statusLabel.setText("Status: Refresh completed");
-	        	});
-	        })  // Ensure UI updates on EDT
-	        .exceptionally(throwable -> {
-	            SwingUtilities.invokeLater(() -> {
-	                logToConsole("Refresh completed with errors: " + throwable.getMessage());
-	                statusLabel.setText("Status: Error during refresh");
-	            });
-	            return null;
-	        });
-		
+
 		/*
 		 * Option 4 CountDownLatch latch = new CountDownLatch(visibleSymbols.size());
 		 * ExecutorService executor =
@@ -6120,8 +6180,14 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	private void processSymbolWithTimeRange(String symbol, String dataSource, StockDataProvider volumeProvider,
 			ZonedDateTime startTime, ZonedDateTime endTime) {
 		try {
-			// Pass the time range to analyzeSymbol
+
+			
 			LinkedHashMap<String, AnalysisResult> results = analyzeSymbolWithTimeRange(symbol, startTime, endTime);
+			
+			logToConsole("Done fetching price data for " + symbol);
+			// Re-compute custom indicators with the fetched price data
+			
+			
 
 			try {
 				if (currentTimeRadio.isSelected()) {
@@ -6134,13 +6200,20 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 						priceData.currentVolume = volumePriceData.getCurrentVolume();
 					}
 
-					logToConsole("Done fetching price data for " + symbol);
-					// Re-compute custom indicators with the fetched price data
-					LinkedHashMap<String, AnalysisResult> updatedResults = analyzeSymbolWithTimeRangeForCustomIndicators(
-							symbol, startTime, endTime, results, priceData);
+					
+					
 					SwingUtilities.invokeLater(() -> {
 						
+						
+						
+						LinkedHashMap<String, AnalysisResult> updatedResults = analyzeSymbolWithTimeRangeForCustomIndicators(
+								symbol, startTime, endTime, results, priceData);
+						
+						
+
 						updateOrAddSymbolRow(symbol, priceData, updatedResults != null ? updatedResults : results);
+						
+						
 					});
 
 				} else {
@@ -6152,14 +6225,16 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 						priceData.previousVolume = volumePriceData.getPreviousVolume();
 						priceData.currentVolume = volumePriceData.getCurrentVolume();
 					}
+										
 					// Re-compute custom indicators with the fetched price data
-					LinkedHashMap<String, AnalysisResult> updatedResults = analyzeSymbolWithTimeRangeForCustomIndicators(
-							symbol, startTime, endTime, results, priceData);
 					SwingUtilities.invokeLater(() -> {
-
+												
+						LinkedHashMap<String, AnalysisResult> updatedResults = analyzeSymbolWithTimeRangeForCustomIndicators(
+								symbol, startTime, endTime, results, priceData);
 						
-
 						updateOrAddSymbolRow(symbol, priceData, updatedResults != null ? updatedResults : results);
+						
+						
 					});
 				}
 
@@ -6183,7 +6258,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 
 		Set<String> standardIndicators = timeframeIndicators.values().stream().flatMap(Set::stream)
 				.collect(Collectors.toSet());
-		
+
 		logToConsole("analyzeSymbolWithTimeRange symbol" + symbol);
 
 		// Convert custom indicator names to CustomIndicator objects
@@ -6200,10 +6275,10 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		}
 
 		// Call analyzeSymbol with the provided time range
-		LinkedHashMap<String, AnalysisResult> results = analysisOrchestrator.analyzeSymbol(symbol, selectedTimeframes,
-				standardIndicators, uptrendFilterEnabled, indicatorTimeRangeCombos, indicatorSessionCombos,
-				indicatorIndexCounterFields, timeframeIndexRanges, currentDataSource, customIndicatorsMap, startTime,
-				endTime);
+		LinkedHashMap<String, AnalysisResult> results = analysisOrchestrator.analyzeSymbol(symbol,
+				currentTimeRadio.isSelected(), selectedTimeframes, standardIndicators, uptrendFilterEnabled,
+				indicatorTimeRangeCombos, indicatorSessionCombos, indicatorIndexCounterFields, timeframeIndexRanges,
+				currentDataSource, customIndicatorsMap, startTime, endTime);
 
 		return results;
 	}
@@ -6212,7 +6287,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			ZonedDateTime startTime, ZonedDateTime endTime, LinkedHashMap<String, AnalysisResult> results,
 			PriceData priceData) {
 		analysisOrchestrator.setDataProvider(currentDataProvider);
-		
+
 		checkAndInstantiateIndicatorsManagementApp();
 
 		analysisOrchestrator.setIndicatorsManagementApp(indicatorsManagementApp);
@@ -6290,7 +6365,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		if (strategyExecutionService == null) {
 			strategyExecutionService = createStrategyExecutionService();
 		}
-		
+
 		checkAndInstantiateIndicatorsManagementApp();
 
 		strategyCheckerHelper.setIndicatorsManagementApp(indicatorsManagementApp);
@@ -6300,7 +6375,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		// 2. Check Z-Score Alerts (independent - based on Z-Score alert config)
 		zScoreAlertManager.setMonteCarloConfig(monteCarloConfig);
 		zScoreAlertManager.setPriceDataMap(priceDataMap);
-		
+
 		zScoreAlertManager.checkZScoreAlerts();
 
 		// 3. Check Bullish Alerts (only if bullish checkbox is selected)
@@ -6901,7 +6976,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		scheduler.scheduleAtFixedRate(() -> {
 			SwingUtilities.invokeLater(() -> {
 				try {
-					if (isWithinAllowedTimeRange()) {
+					if (isWithinAllowedTimeRange() && !isProcessingUpdates()) {
+						this.isProcessingUpdates = true;
 						refreshData();
 
 						// Save logs/reports if enabled
@@ -6911,6 +6987,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 						 * (enableSaveLogCheckbox.isSelected()) { saveConsoleLog(); } if
 						 * (enableLogReportsCheckbox.isSelected()) { saveReportFiles(); } }
 						 */
+					} else if(isProcessingUpdates()) {
+						logToConsole("Processing Updates in progress...");
 					} else {
 						logToConsole("Skipped live update - outside allowed time range");
 					}
@@ -6923,6 +7001,10 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		}, 0, currentRefreshInterval, TimeUnit.SECONDS);
 
 		logToConsole("Live updates started (interval: " + currentRefreshInterval + "s)");
+	}
+	
+	private boolean isProcessingUpdates() {
+		return this.isProcessingUpdates ;
 	}
 
 	private boolean isWithinAllowedTimeRange() {
@@ -6955,6 +7037,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 		startLiveButton.setEnabled(true);
 		stopLiveButton.setEnabled(false);
 		refreshButton.setEnabled(true);
+		isProcessingUpdates = false;
+		
 		if (scheduler != null) {
 			scheduler.shutdown();
 			try {
@@ -7024,7 +7108,7 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			}
 		}
 	}
-	
+
 	private PriceData fetchPriceDataTimeRange(String symbol, LinkedHashMap<String, AnalysisResult> results)
 			throws IOException {
 
@@ -7184,27 +7268,26 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 	}
 
 	private String getTrendStatus(AnalysisResult result) {
-		/*if (result.getPrice() > result.getSma20() && result.getPrice() > result.getSma200()) {
-			return "Strong Uptrend";
-		} else if (result.getPrice() < result.getSma20() && result.getPrice() < result.getSma200()) {
-			return "Strong Downtrend";
-		}*/ /*
-			 * else if (result.getPrice() > result.getSma20()) { return "Mild Uptrend"; }
-			  else {
-			return "Neutral";
-		}*/
-		
+		/*
+		 * if (result.getPrice() > result.getSma20() && result.getPrice() >
+		 * result.getSma200()) { return "Strong Uptrend"; } else if (result.getPrice() <
+		 * result.getSma20() && result.getPrice() < result.getSma200()) { return
+		 * "Strong Downtrend"; }
+		 */
+		/*
+		 * else if (result.getPrice() > result.getSma20()) { return "Mild Uptrend"; }
+		 * else { return "Neutral"; }
+		 */
+
 		return result.getTrend();
 	}
 
 	private String getRsiStatus(AnalysisResult result) {
-		/*if (result.getRsi() > 70)
-			return "Overbought";
-		if (result.getRsi() < 30)
-			return "Oversold";
-		if (result.getRsi() > 50)
-			return "Bullish";
-		return "Bearish";*/
+		/*
+		 * if (result.getRsi() > 70) return "Overbought"; if (result.getRsi() < 30)
+		 * return "Oversold"; if (result.getRsi() > 50) return "Bullish"; return
+		 * "Bearish";
+		 */
 		return result.getRsiTrend();
 	}
 
@@ -7399,17 +7482,17 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			indicatorsManagementApp.addWindowListener(new java.awt.event.WindowAdapter() {
 				@Override
 				public void windowClosing(java.awt.event.WindowEvent windowEvent) {
-					//if(!indicatorsManagementApp.isSaved()) {
-						saveFullConfigurationFromIndicatorsApp();
-						autoSaveConfiguration();
-					//}
+					// if(!indicatorsManagementApp.isSaved()) {
+					saveFullConfigurationFromIndicatorsApp();
+					autoSaveConfiguration();
+					// }
 				}
 
 				@Override
 				public void windowClosed(java.awt.event.WindowEvent windowEvent) {
-					//if(!indicatorsManagementApp.isSaved()) {
-						saveFullConfigurationFromIndicatorsApp();
-					//}
+					// if(!indicatorsManagementApp.isSaved()) {
+					saveFullConfigurationFromIndicatorsApp();
+					// }
 				}
 			});
 
@@ -7624,8 +7707,8 @@ public class StockDashboardv1_22_13 extends JFrame implements IStockDashboard {
 			logToConsole("   - Watchlists: " + currentWatchlists.size());
 
 			// 5. Also save to persistent storage if needed
-			//saveIndicatorManagementConfigToPreferences();
-						
+			// saveIndicatorManagementConfigToPreferences();
+
 			indicatorsManagementApp.setSaved(true);
 
 		} catch (Exception e) {

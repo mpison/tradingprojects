@@ -84,12 +84,12 @@ public class MonteCarloDataSourceManager {
                 .collect(java.util.stream.Collectors.toList());
     }
     
-    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end) {
-        return currentDataSource.fetchData(symbols, start, end);
+    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end,  boolean useCustomTimeRange2) {
+        return currentDataSource.fetchData(symbols, start, end, useCustomTimeRange2);
     }
     
-    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe) {
-        return currentDataSource.fetchData(symbols, start, end, timeframe);
+    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe, boolean useCustomTimeRange2) {
+        return currentDataSource.fetchData(symbols, start, end, timeframe, useCustomTimeRange2);
     }
     
     public String getCurrentDataSourceName() {

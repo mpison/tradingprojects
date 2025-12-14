@@ -153,17 +153,17 @@ public class TradingViewService extends StockDataProvider {
  	    
  	   symbol = symbol.replaceFirst("^\\^", "");
         
-        System.out.println("Searching for symbol: " + symbol);
+        //System.out.println("Searching for symbol: " + symbol);
         
         // First search for the symbol to get exchange information
         List<String> symbolVariants = getSymbolVariantsWithExchange(symbol);
         
-        System.out.println("Found " + symbolVariants.size() + " symbol variants: " + symbolVariants);
+        //System.out.println("Found " + symbolVariants.size() + " symbol variants: " + symbolVariants);
         
         // Try each symbol variant until one works
         for (int i = 0; i < symbolVariants.size(); i++) {
             String symbolVariant = symbolVariants.get(i);
-            System.out.println("Trying symbol variant " + (i + 1) + "/" + symbolVariants.size() + ": " + symbolVariant);
+            //System.out.println("Trying symbol variant " + (i + 1) + "/" + symbolVariants.size() + ": " + symbolVariant);
             
             try {
                 PriceData result = executeSymbolRequest(requestBuilder.buildSymbolRequest(
@@ -171,7 +171,7 @@ public class TradingViewService extends StockDataProvider {
                     TradingViewRequestBuilder.PRE_MARKET_COLUMNS
                 ));
                 
-                System.out.println("Success with symbol variant: " + symbolVariant);
+                //System.out.println("Success with symbol variant: " + symbolVariant);
                 return result;
                 
             } catch (StockApiException e) {

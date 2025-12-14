@@ -28,6 +28,7 @@ public class TimeCalculationUtils {
 		case "1W":
 			return end.minusDays(3000);
 		default:
+			System.out.println("calculateStartTime = " + timeframe + " end: "+end);
 			return end.minusDays(7);
 		}
 	}

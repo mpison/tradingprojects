@@ -136,7 +136,7 @@ public class AlpacaDataProvider implements StockDataProvider {
             }
                         
             PriceData priceData =  computePriceDataStats(symbol);            
-            System.out.print(false);
+
             String responseBody = response.body().string();
             JSONObject json = new JSONObject(responseBody);
             JSONObject snapshot = json.getJSONObject(symbol);

@@ -195,7 +195,7 @@ public class FilterableTableModel extends DefaultTableModel {
 				"changeFromOpen", "percentChange", "postmarketChange", "gap", "premarketVolume", "currentVolume",
 				"postmarketVolume", "previousVolume", "prevLastDayPrice", "averageVol", "analystRating",
 				"premarketHigh", "high", "postmarketHigh", "premarketLow", "low", "postmarketLow",
-				"premarketHighestPercentile", "marketHighestPercentile", "postmarketHighestPercentile"));
+				"premarketHighestPercentile", "marketHighestPercentile", "marketLowestPercentile","postmarketHighestPercentile"));
 
 		if (colName == null) {
 			return String.class; // Fallback

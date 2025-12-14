@@ -70,7 +70,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
             payload.set("filter2", createTypeFilter(mapper));
 
             String json = mapper.writeValueAsString(payload);
-            System.out.println("TradingView buildPennyStocksPreMarketRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildPennyStocksPreMarketRequest Generated Payload: \n " + json); // Log for debugging
             return json;
         } catch (Exception e) {
             throw new RuntimeException("Error building pre-market request", e);
@@ -111,7 +111,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildPennyStockStandardMarketStocksByVolumeRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildPennyStockStandardMarketStocksByVolumeRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
             
@@ -161,7 +161,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildPennyStocksPostMarketByVolumeRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildPennyStocksPostMarketByVolumeRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
         } catch (Exception e) {
@@ -218,7 +218,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildIndexStocksMarketByPreMarketVolumeRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildIndexStocksMarketByPreMarketVolumeRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
         } catch (Exception e) {
@@ -276,7 +276,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildIndexStocksMarketByStandardVolumeRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildIndexStocksMarketByStandardVolumeRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
         } catch (Exception e) {
@@ -333,7 +333,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildIndexStocksMarketByPostMarketVolumeRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildIndexStocksMarketByPostMarketVolumeRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
         } catch (Exception e) {
@@ -372,7 +372,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
 
             String json = mapper.writeValueAsString(payload);
             
-            System.out.println("TradingView buildStocksMarketBySymbolRequest Generated Payload: \n " + json); // Log for debugging
+            //System.out.println("TradingView buildStocksMarketBySymbolRequest Generated Payload: \n " + json); // Log for debugging
             
             return json;
         } catch (Exception e) {
@@ -531,7 +531,7 @@ public class TradingViewRequestBuilder extends StockRequestBuilder {
             payload.put("symbol", symbol);
             
             String json = mapper.writeValueAsString(payload);
-            System.out.println("TradingView buildSymbolRequest Generated Payload: \n " + json);
+            ///System.out.println("TradingView buildSymbolRequest Generated Payload: \n " + json);
             return json;
             
         } catch (Exception e) {

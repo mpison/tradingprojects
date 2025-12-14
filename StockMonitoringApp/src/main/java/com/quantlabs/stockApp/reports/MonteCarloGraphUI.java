@@ -228,9 +228,12 @@ public class MonteCarloGraphUI {
 						return fetchDataWithCustomTimeRange(currentSymbols);
 					} else {
 						// Use default current time range
-						ZonedDateTime end = ZonedDateTime.now(ZoneOffset.UTC);
+						
+						return fetchDataWithCurrentTime(currentSymbols);
+						
+						/*ZonedDateTime end = ZonedDateTime.now(ZoneOffset.UTC);
 						ZonedDateTime start = end.minusDays(7);
-						return dataSourceManager.fetchData(currentSymbols, start, end);
+						return dataSourceManager.fetchData(currentSymbols, start, end, useCustomTimeRange);*/
 					}
 				} catch (Exception e) {
 					System.err.println("Error in initial data load: " + e.getMessage());
@@ -1529,7 +1532,7 @@ public class MonteCarloGraphUI {
 		// REPLACED: Volume Display Combo Box instead of Checkbox
 		controlPanel.add(new JLabel("Display Option:"));
 		String[] volumeOptions = { "Display Current Volumes", "Display Current Total Volumes",
-				"PriceData Assigned Attributes" };
+				"PriceData Assigned Attributes", "No Tooltip Display" };
 		displayOptionCombo = new JComboBox<>(volumeOptions);
 		displayOptionCombo.setSelectedItem("PriceData Assigned Attributes"); // Default
 		controlPanel.add(displayOptionCombo);
@@ -1613,6 +1616,8 @@ public class MonteCarloGraphUI {
 					break;
 				case "PriceData Assigned Attributes":
 					showPriceDataAttributes(volumeLabel, e, closestTime);
+					break;
+				case "No Tooltip Display":
 					break;
 				default:
 					volumeLabel.setVisible(false);
@@ -2268,7 +2273,7 @@ public class MonteCarloGraphUI {
 			System.out.println("Timeframe: " + currentTimeframe);
 
 			// Use custom timeframe for custom time range mode
-			return fetchDataWithTimeframe(symbols, start, end, currentTimeframe);
+			return fetchDataWithTimeframe(symbols, start, end, currentTimeframe, useCustomTimeRange);
 		} catch (Exception e) {
 			System.err.println("Error in custom time range fetch: " + e.getMessage());
 			return new HashMap<>();
@@ -2291,7 +2296,7 @@ public class MonteCarloGraphUI {
 			System.out.println("Timeframe: 1Min (Fixed)");
 
 			// Current time mode always uses 1Min timeframe
-			return fetchDataWithTimeframe(symbols, start, end, "1Min");
+			return fetchDataWithTimeframe(symbols, start, end, "1Min", useCustomTimeRange);
 		} catch (Exception e) {
 			System.err.println("Error in current time fetch: " + e.getMessage());
 			return new HashMap<>();
@@ -2306,7 +2311,7 @@ public class MonteCarloGraphUI {
 	 */
 
 	private Map<String, Map<ZonedDateTime, Double[]>> fetchDataWithTimeframe(List<String> symbols, ZonedDateTime start,
-			ZonedDateTime end, String timeframe) {
+			ZonedDateTime end, String timeframe, boolean useCustomTimeRange2) {
 		try {
 			/*
 			 * if (!isTimeframeSupported(timeframe)) { System.out.println("Timeframe " +
@@ -2314,13 +2319,13 @@ public class MonteCarloGraphUI {
 			 */
 
 			System.out.println("Using timeframe: " + timeframe);
-			return dataSourceManager.fetchData(symbols, start, end, timeframe);
+			return dataSourceManager.fetchData(symbols, start, end, timeframe, useCustomTimeRange2);
 		} catch (Exception e) {
 			System.err.println("Error fetching data with timeframe " + timeframe + ": " + e.getMessage());
 			// Fallback to 1Min if there's an error
 			try {
 				System.out.println("Falling back to 1Min timeframe due to error");
-				return dataSourceManager.fetchData(symbols, start, end, "1Min");
+				return dataSourceManager.fetchData(symbols, start, end, "1Min", useCustomTimeRange2);
 			} catch (Exception fallbackError) {
 				System.err.println("Error with fallback timeframe: " + fallbackError.getMessage());
 				return new HashMap<>();

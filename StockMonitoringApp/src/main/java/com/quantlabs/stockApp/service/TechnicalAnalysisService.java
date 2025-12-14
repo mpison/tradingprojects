@@ -339,7 +339,13 @@ public class TechnicalAnalysisService {
             
             if(parameters.get("strategyConfig") != null) {
             	
-            	strategyConfig = (StrategyConfig) parameters.get("strategyConfig");
+            	try{
+            		strategyConfig = (StrategyConfig) parameters.get("strategyConfig");
+            	}catch(Exception e) {
+            		String selectedStrategy = (String) parameters.get("selectedStrategy");
+                	
+            		strategyConfig = indicatorsManagementApp.getStrategyConfigByName(selectedStrategy);            		
+            	}
             	
             }else {
             
@@ -362,7 +368,7 @@ public class TechnicalAnalysisService {
             
             // Create and execute the MultiTimeframeZScoreStrategy
             MultiTimeframeZScoreStrategy strategy = new MultiTimeframeZScoreStrategy(
-                strategyConfig, priceData, indicatorsManagementApp, null // logger
+                strategyConfig, priceData, indicatorsManagementApp, customIndicator, null // logger
             );
             
             strategy.setIndicatorsManagementApp(indicatorsManagementApp);
@@ -730,7 +736,11 @@ public class TechnicalAnalysisService {
             
             // Get the target value
             Double targetValue = strategy.getMovingAverageTargetValue(result);
+            
+            
+            //TODO: recheck computation
             Double targetPercentile = strategy.getMovingAverageTargetValuePercentile(result); 
+            // strategy.getPercentileMADiffByIndex(series, lastIndex);            
             
             if (targetValue == null || Double.isNaN(targetValue)) {
                 return "N/A - Calculation error";
@@ -749,14 +759,10 @@ public class TechnicalAnalysisService {
             double tagetFromLow = (priceData.getLow() < 1000) ? priceData.getLow() + targetValue : 0;            
             
             if(countDisplayEnabledParam > 2) {            
-            	//return String.format("Target: %.2f, TargetPerctle: %.2f, Current: %.2f, %s by %.2f%% (%s)", 
-                //               targetValue, targetPercentile, currentPrice, position, Math.abs(percentDifference), trendDirection);
             	
             	return String.format("Target: %.2f - FrHigh: %.2f / FrLow: %.2f, TargetPerctle: %.2f, Current: %.2f, %s by %.2f%% (%s)", 
                         targetValue, tagetFromHighest, tagetFromLow, targetPercentile, currentPrice, position, Math.abs(percentDifference), trendDirection);
             	
-            	//return String.format("Target: %.2f - FrHigh: %.2f / FrLow: %.2f, TargetPerctle: %.2f, Current: %.2f, %s by %.2f%% (%s)", 
-                //      targetValue, tagetFromHighest, tagetFromLow, targetPercentile, currentPrice, position, Math.abs(percentDifference), trendDirection);
             }else {            
             	String returnParam = String.format("%.2f", targetPercentile);
             	if(isTrendParam) {

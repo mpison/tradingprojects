@@ -2,19 +2,13 @@ package com.quantlabs.stockApp.indicator.strategy;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.ta4j.core.BarSeries;
-import org.ta4j.core.indicators.EMAIndicator;
-import org.ta4j.core.indicators.MACDIndicator;
-import org.ta4j.core.indicators.ParabolicSarIndicator;
-import org.ta4j.core.indicators.RSIIndicator;
-import org.ta4j.core.indicators.SMAIndicator;
-import org.ta4j.core.indicators.helpers.ClosePriceIndicator;
-import org.ta4j.core.indicators.helpers.VolumeIndicator;
-import org.ta4j.core.indicators.volume.VWAPIndicator;
 
 import com.quantlabs.stockApp.data.ConsoleLogger;
 import com.quantlabs.stockApp.indicator.management.CustomIndicator;
@@ -26,6 +20,7 @@ import com.quantlabs.stockApp.reports.AnalysisResult;
 public class MultiTimeframeZScoreStrategy extends AbstractIndicatorStrategy {
 
 	private StrategyConfig strategyConfig;
+	private CustomIndicator customIndicator;
 	private PriceData priceData;
 	private Map<String, BarSeries> timeframeSeries;
 
@@ -35,13 +30,14 @@ public class MultiTimeframeZScoreStrategy extends AbstractIndicatorStrategy {
 	private String additionalNotes = "";
 
 	public MultiTimeframeZScoreStrategy(StrategyConfig strategyConfig, PriceData priceData,
-			IndicatorsManagementApp indicatorsManagementApp, ConsoleLogger logger) {
+			IndicatorsManagementApp indicatorsManagementApp, CustomIndicator customIndicator, ConsoleLogger logger) {
 		super(logger);
 		this.strategyConfig = strategyConfig;
 		this.priceData = priceData;
 		this.indicatorsManagementApp = indicatorsManagementApp;
 		this.timeframeSeries = new HashMap<>();
 		this.indicatorCache = new HashMap<>();
+		this.customIndicator = customIndicator;
 		initializeTimeframeSeries();
 	}
 
@@ -122,6 +118,13 @@ public class MultiTimeframeZScoreStrategy extends AbstractIndicatorStrategy {
 	 */
 	private List<String> getSortedTimeframes() {
 		List<String> timeframes = new ArrayList<>(timeframeSeries.keySet());
+		
+		String selectedTfStr = (String) this.customIndicator.getParameter("selectedTimeframes");
+		
+		List<String> selectedTimeframes = Arrays.stream(selectedTfStr.split(",")).collect(Collectors.toList());
+				
+		timeframes = selectedTimeframes.size() > 0 ? selectedTimeframes : timeframes;		
+		
 		timeframes.sort((tf1, tf2) -> Integer.compare(getTimeframeMinutes(tf2), getTimeframeMinutes(tf1)));
 		return timeframes;
 	}
@@ -690,6 +693,17 @@ public class MultiTimeframeZScoreStrategy extends AbstractIndicatorStrategy {
 			Map<String, Integer> configWeights = (Map<String, Integer>) weightsObj;
 			weights.putAll(configWeights);
 		}
+		else if (weightsObj instanceof String) {
+			
+			String input = (String) weightsObj;
+			
+			weights = Arrays.stream(input.substring(1, input.length() - 1).split(", "))
+				    .map(pair -> pair.split("="))
+				    .collect(Collectors.toMap(
+				        arr -> arr[0], 
+				        arr -> Integer.parseInt(arr[1])
+				    ));
+		}
 
 		return weights;
 	}
@@ -705,6 +719,16 @@ public class MultiTimeframeZScoreStrategy extends AbstractIndicatorStrategy {
 			@SuppressWarnings("unchecked")
 			Map<String, Integer> configWeights = (Map<String, Integer>) weightsObj;
 			weights.putAll(configWeights);
+		}else if (weightsObj instanceof String) {
+			
+			String input = (String) weightsObj;
+			
+			weights = Arrays.stream(input.substring(1, input.length() - 1).split(", "))
+				    .map(pair -> pair.split("="))
+				    .collect(Collectors.toMap(
+				        arr -> arr[0], 
+				        arr -> Integer.parseInt(arr[1])
+				    ));
 		}
 
 		return weights;

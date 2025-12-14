@@ -138,13 +138,15 @@ public class ZScoreAlertManager {
             }
 
             // Apply strategy filtering if specified
-            List<String> filteredSymbols = allSymbols;
-            if (strategy != null && !strategy.trim().isEmpty() && strategyCheckerHelper != null) {
-                filteredSymbols = applyStrategyFilter(allSymbols, strategy, columnName);
+            List<String> filteredSymbols1 = allSymbols;
+            if (strategy != null && !strategy.equals("All Available Symbols") && !strategy.trim().isEmpty() && strategyCheckerHelper != null) {
+                filteredSymbols1 = applyStrategyFilter(allSymbols, strategy, columnName);
+            }else if(strategy.equals("All Available Symbols" )){
+            	filteredSymbols1 = allSymbols;
             }
 
             // Get ranked symbols from filtered list
-            List<SymbolRank> symbolRanks = getRankedSymbols(columnIndex, filteredSymbols);
+            List<SymbolRank> symbolRanks = getRankedSymbols(columnIndex, filteredSymbols1);
             
             // Get top N symbols
             symbols = getTopNSymbols(symbolRanks, monitorRange);
@@ -185,12 +187,12 @@ public class ZScoreAlertManager {
                 
                 if (strategyConfig == null) {
                     logToConsole("Error: Strategy not found: " + strategyName);
-                    return symbols; // Return all symbols if strategy not found
+                    return filteredSymbols; // Return empty symbols if strategy not found
                 }
                 
                 if (!strategyConfig.isEnabled()) {
                     logToConsole("Warning: Strategy '" + strategyName + "' is disabled - skipping filtering");
-                    return symbols; // Return all symbols if strategy is disabled
+                    return filteredSymbols; // Return empty symbols if strategy is disabled
                 }
                 
                 // Check each symbol against the strategy

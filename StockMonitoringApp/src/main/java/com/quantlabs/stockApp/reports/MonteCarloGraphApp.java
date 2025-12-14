@@ -597,7 +597,7 @@ public class MonteCarloGraphApp {
 
 			// Use the current data source to check if symbol exists
 			List<String> testSymbols = Arrays.asList(cleanSymbol);
-			var result = dataSourceManager.fetchData(testSymbols, start, end);
+			var result = dataSourceManager.fetchData(testSymbols, start, end, initialUseCustomTimeRange);
 
 			boolean hasData = result.containsKey(cleanSymbol) && !result.get(cleanSymbol).isEmpty();
 

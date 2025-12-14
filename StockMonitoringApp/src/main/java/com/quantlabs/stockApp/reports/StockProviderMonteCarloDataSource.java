@@ -9,6 +9,7 @@ import org.ta4j.core.Bar;
 import org.ta4j.core.BarSeries;
 
 import com.quantlabs.stockApp.data.StockDataProvider;
+import com.quantlabs.stockApp.service.AnalysisOrchestrator;
 import com.quantlabs.stockApp.data.ConsoleLogger;
 
 public class StockProviderMonteCarloDataSource implements MonteCarloDataSource {
@@ -23,13 +24,13 @@ public class StockProviderMonteCarloDataSource implements MonteCarloDataSource {
     }
 
     @Override
-    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end) {
+    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, boolean useCustomTimeRange) {
         // Default to 1Min for backward compatibility
-        return fetchData(symbols, start, end, "1Min");
+        return fetchData(symbols, start, end, "1Min", useCustomTimeRange);
     }
 
     @Override
-    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe) {
+    public Map<String, Map<ZonedDateTime, Double[]>> fetchData(List<String> symbols, ZonedDateTime start, ZonedDateTime end, String timeframe, boolean useCustomTimeRange) {
         Map<String, Map<ZonedDateTime, Double[]>> result = new ConcurrentHashMap<>();
         
         // Convert UI timeframe to provider timeframe format
@@ -38,7 +39,11 @@ public class StockProviderMonteCarloDataSource implements MonteCarloDataSource {
         for (String symbol : symbols) {
             try {
                 // Fetch historical data with the specified timeframe
-                BarSeries series = stockDataProvider.getHistoricalData(symbol, providerTimeframe, 10000, start, end);
+                BarSeries series = stockDataProvider.getHistoricalData(symbol, providerTimeframe, 10000, start, end); 
+                		
+                //AnalysisOrchestrator.getUpdatedBarSeries(symbol, start, end, null, !useCustomTimeRange, timeframe, 10000, stockDataProvider);
+                		
+                //stockDataProvider.getHistoricalData(symbol, providerTimeframe, 10000, start, end);
                 
                 if (series.getBarCount() > 0) {
                     Map<ZonedDateTime, Double[]> dataMap = calculateCumulativeReturns(series);
